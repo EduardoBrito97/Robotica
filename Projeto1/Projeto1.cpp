@@ -67,8 +67,24 @@ inline double to_deg(double radians) {
 
 void controle_movimento(simxFloat pos[3], simxFloat goal[3], simxFloat* PhiL, simxFloat* PhiR)
 {    
-    *PhiR = +1;
-    *PhiL = -1;
+    double deltaX,deltaY,ro,alpha,beta,v,w;
+    double Kp,Ka,Kb;
+
+    Kp = 3.0;
+    Ka = 8.0;
+    Kb = -1.5;
+
+    deltaX = goal[0] - pos[0];
+    deltaY = goal[1] - pos[1];
+    ro = sqrt( (deltaX*deltaX) + (deltaY*deltaY));
+    alpha = -pos[2] + atan2(deltaY,deltaX);
+    beta =  -pos[2] - alpha;
+
+    v = Kp*ro;
+    w = (Ka*alpha) + (Kb*beta);
+
+    *PhiR = v + ((L*w)/2);
+    *PhiL = v - ((L*w)/2);
 } 
 
 int main(int argc, char* argv[]) {
