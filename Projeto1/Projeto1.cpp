@@ -86,7 +86,6 @@ void controle_movimento(simxFloat pos[3], simxFloat goal[3], simxFloat* PhiL, si
     // Tentar dar ré
     if (alpha <= (-M_PI/2) || alpha > (M_PI / 2)) {
         v = -v;
-        w = -w;
     }
 
     *PhiR =( v + ((L*w)/2))*10;
