@@ -70,9 +70,9 @@ void controle_movimento(simxFloat pos[3], simxFloat goal[3], simxFloat* PhiL, si
     double deltaX,deltaY,ro,alpha,beta,v,w,transCmRad;
     double Kp,Ka,Kb;
 
-    Kp = 3.0;
-    Ka = 5.0;
-    Kb = -1.5;
+    Kp = 4.0;
+    Ka = 14.0;
+    Kb = -3.0;
 
     deltaX = goal[0] - pos[0];
     deltaY = goal[1] - pos[1];
@@ -81,17 +81,27 @@ void controle_movimento(simxFloat pos[3], simxFloat goal[3], simxFloat* PhiL, si
     beta = -pos[2] - alpha;
 
     v = Kp*ro;
-    w = (Ka*alpha) + (Kb*beta);
+
+    printf("\npos[2] atan2 alpha: [%.2f %.2f %.2f]\n",to_deg(-pos[2]) ,to_deg(atan2(deltaY,deltaX)),to_deg(alpha));
 
     // Tentar dar ré
-    if (alpha <= (-M_PI/2) || alpha > (M_PI / 2)) {
+    if (alpha <= (-M_PI/2)) {
         v = -v;
+        alpha += M_PI;
     }
+    else if(alpha > (M_PI / 2)) {
+        v = -v;
+        alpha -= M_PI;
+    }
+    
+    w = (Ka*alpha) + (Kb*beta);
 
-    *PhiR =( v + ((L*w)/2))*10;
-    *PhiL =(v - ((L*w)/2))*10;
+    *PhiR =(v + ((L*w)/2))*5;
+    *PhiL =(v - ((L*w)/2))*5;
+
 
     printf("V e w: [%.2f %.2f ]",v ,w);
+    
 } 
 
 int main(int argc, char* argv[]) {
