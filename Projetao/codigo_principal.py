@@ -6,6 +6,9 @@ import matplotlib as mpl
 
 vrep = None
 client_id = None
+PI = math.pi
+
+L = 0.33
 
 def get_object_pos(object_name):
     _, object_handle = vrep.simxGetObjectHandle(client_id, object_name, vrep.simx_opmode_oneshot_wait)
@@ -17,27 +20,50 @@ def get_object_pos(object_name):
     object_pos[2] = theta
     return object_pos
 
-def move_to_target(target, steer, left_motor_handle, right_motor_handle):
-    v = 1	#forward velocity
-    kp = 0.5	#steering gain
-    vl = v + kp * steer
-    vr = v - kp * steer
-    #print("V_l =", vl)
-    #print("V_r =", vr)
+def move_to_target(target):
+    _, left_motor_handle = vrep.simxGetObjectHandle(client_id, 'Pioneer_p3dx_leftMotor', vrep.simx_opmode_oneshot_wait)
+    _, right_motor_handle = vrep.simxGetObjectHandle(client_id, 'Pioneer_p3dx_rightMotor', vrep.simx_opmode_oneshot_wait)
 
-    error_code = vrep.simxSetJointTargetVelocity(client_id, left_motor_handle, vl, vrep.simx_opmode_streaming)
-    error_code = vrep.simxSetJointTargetVelocity(client_id, right_motor_handle, vr, vrep.simx_opmode_streaming)
+    robot_pos = get_object_pos('Pioneer_p3dx')
+    print("Posição Robô: X = {:.2f}, Y = {:.2f}, Teta = {:.2f}".format(robot_pos[0], robot_pos[1], robot_pos[2]))
+
+    k_p = 4.0
+    k_a = 14.0
+    k_b = -9.0
+
+    delta_x = target[0] - robot_pos[0]
+    delta_y = target[1] - robot_pos[1]
+    ro = ((delta_x ** 2) + (delta_y ** 2)) ** (1/2)
+    alpha = -robot_pos[2] + math.atan2(delta_y, delta_x)
+
+    v = k_p * ro
+
+    if (alpha <= (-PI/2)):
+        v = -v
+        alpha += PI
+    elif(alpha > (PI / 2)):
+        v = -v
+        alpha -= PI
+
+    beta = -robot_pos[2] - alpha + target[2]
+    w = (k_a * alpha) + (k_b * beta)
+
+    if (ro < 0.08):
+        v = 0
+
+    lw_half = ((L*w)/2) 
+    vl = v - lw_half
+    vr = v + lw_half
+
+    vrep.simxSetJointTargetVelocity(client_id, left_motor_handle, vl, vrep.simx_opmode_streaming)
+    vrep.simxSetJointTargetVelocity(client_id, right_motor_handle, vr, vrep.simx_opmode_streaming)
 
 def main(client_id_connected, vrep_lib):
     global vrep, client_id
     vrep = vrep_lib
     client_id = client_id_connected
 
-    PI=math.pi  #pi=3.14..., constant
-
-    #retrieve motor  handles
-    error_code, left_motor_handle = vrep.simxGetObjectHandle(client_id, 'Pioneer_p3dx_leftMotor', vrep.simx_opmode_oneshot_wait)
-    error_code, right_motor_handle = vrep.simxGetObjectHandle(client_id, 'Pioneer_p3dx_rightMotor', vrep.simx_opmode_oneshot_wait)
+    target_pos = None
 
     sensor_h = [] #empty list for handles
     sensor_val = np.array([]) #empty array for sensor measurements
@@ -47,14 +73,14 @@ def main(client_id_connected, vrep_lib):
 
     #for loop to retrieve sensor arrays and initiate sensors
     for x in range(1,16+1):
-            error_code,sensor_handle = vrep.simxGetObjectHandle(client_id, 'Pioneer_p3dx_ultrasonicSensor'+str(x), vrep.simx_opmode_oneshot_wait)
+            _, sensor_handle = vrep.simxGetObjectHandle(client_id, 'Pioneer_p3dx_ultrasonicSensor'+str(x), vrep.simx_opmode_oneshot_wait)
             sensor_h.append(sensor_handle) #keep list of handles        
-            error_code, detection_state, detected_point, detected_object_handle, detected_surface_normal_vector = vrep.simxReadProximitySensor(client_id, sensor_handle, vrep.simx_opmode_streaming)                
+            _, detection_state, detected_point, detected_object_handle, detected_surface_normal_vector = vrep.simxReadProximitySensor(client_id, sensor_handle, vrep.simx_opmode_streaming)                
             sensor_val = np.append(sensor_val, np.linalg.norm(detected_point)) #get list of values            
 
     t = time.time()
 
-    while (time.time()-t) < 60:
+    while (time.time() - t) < 60:
         #Loop Execution
         sensor_val=np.array([])    
         for x in range(1,16+1):
@@ -67,18 +93,12 @@ def main(client_id_connected, vrep_lib):
         min_ind = np.where(sensor_sq==np.min(sensor_sq))
         min_ind = min_ind[0][0]
         
-        if sensor_sq[min_ind]<0.2:
-            steer = -1/sensor_loc[min_ind]
-        else:
-            steer = 0
-                
+        old_target = target_pos
         target_pos = get_object_pos('Target#')
-        print("Objetivo: X = {:.2f}, Y = {:.2f}, Teta = {:.2f}".format(target_pos[0], target_pos[1], target_pos[2]))
 
-        move_to_target(target_pos, steer, left_motor_handle, right_motor_handle)
+        if old_target != target_pos:
+            print("Objetivo atualizado para: X = {:.2f}, Y = {:.2f}, Teta = {:.2f}".format(target_pos[0], target_pos[1], target_pos[2]))
 
-        time.sleep(0.2) #loop executes once every 0.2 seconds (= 5 Hz)
+        move_to_target(target_pos)
 
-    #Post ALlocation
-    error_code = vrep.simxSetJointTargetVelocity(client_id, left_motor_handle, 0, vrep.simx_opmode_streaming)
-    error_code = vrep.simxSetJointTargetVelocity(client_id, right_motor_handle, 0, vrep.simx_opmode_streaming)
+        time.sleep(0.01) #loop executes once every 0.05 seconds (= 20 Hz)
