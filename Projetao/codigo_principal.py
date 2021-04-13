@@ -21,9 +21,6 @@ def get_object_pos(object_name):
     return object_pos
 
 def move_to_target(target):
-    _, left_motor_handle = vrep.simxGetObjectHandle(client_id, 'LeftMotor#', vrep.simx_opmode_oneshot_wait)
-    _, right_motor_handle = vrep.simxGetObjectHandle(client_id, 'RightMotor#', vrep.simx_opmode_oneshot_wait)
-
     robot_pos = get_object_pos('Pioneer_p3dx')
     #print("Posição Robô: X = {:.2f}, Y = {:.2f}, Teta = {:.2f}".format(robot_pos[0], robot_pos[1], robot_pos[2]))
 
@@ -56,6 +53,11 @@ def move_to_target(target):
     vl = v - lw_half
     vr = v + lw_half
 
+    set_speed(vl, vr)
+
+def set_speed(vl, vr):
+    _, left_motor_handle = vrep.simxGetObjectHandle(client_id, 'LeftMotor#', vrep.simx_opmode_oneshot_wait)
+    _, right_motor_handle = vrep.simxGetObjectHandle(client_id, 'RightMotor#', vrep.simx_opmode_oneshot_wait)
     vrep.simxSetJointTargetVelocity(client_id, left_motor_handle, vl, vrep.simx_opmode_streaming)
     vrep.simxSetJointTargetVelocity(client_id, right_motor_handle, vr, vrep.simx_opmode_streaming)
 
@@ -97,6 +99,36 @@ def main(client_id_connected, vrep_lib):
         if old_target != target_pos:
             print("Objetivo atualizado para: X = {:.2f}, Y = {:.2f}, Teta = {:.2f}".format(target_pos[0], target_pos[1], target_pos[2]))
 
-        move_to_target(target_pos)
+        if sensor_sq[min_ind]<0.2:
+            steer = -1/sensor_loc[min_ind]
+        else:
+            steer = 0
+        
+        sensor_left_1 = sensor_val[0]
+        sensor_left_2 = sensor_val[15]
+
+        sensor_front_1 = sensor_val[3]
+        sensor_front_2 = sensor_val[4]
+
+        sensor_right_1 = sensor_val[7]
+        sensor_right_2 = sensor_val[8]
+
+        sensor_back_1 = sensor_val[11]
+        sensor_back_2 = sensor_val[12]
+
+        print("Frente para: 1 = {:.2f}, 2 = {:.2f}".format(sensor_front_1, sensor_front_2))
+        print("Atras para: 1 = {:.2f}, 2 = {:.2f}".format(sensor_back_1, sensor_back_2))
+        print("Esquerda para: 1 = {:.2f}, 2 = {:.2f}".format(sensor_left_1, sensor_left_2))
+        print("Direita para: 1 = {:.2f}, 2 = {:.2f}".format(sensor_right_1, sensor_right_2))
+
+        v = 1	#forward velocity
+        kp = 0.5	#steering gain
+        vl = v + kp * steer
+        vr = v - kp * steer
+        #print("V_l =", vl)
+        #print("V_r =", vr)
+        set_speed(0, 0)
+
+        #move_to_target(target_pos)
 
         time.sleep(0.01) # Loop executa numa taxa de 20 Hz
