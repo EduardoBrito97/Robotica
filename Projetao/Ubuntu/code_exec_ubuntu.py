@@ -33,7 +33,7 @@ def exit_gracefully(signum, frame):
     # restore the original signal handler as otherwise evil things will happen
     signal.signal(signal.SIGINT, original_sigint)
 
-    vrep.simxPauseSimulation(client_id, vrep.simx_opmode_oneshot_wait)
+    vrep.simxStopSimulation(client_id, vrep.simx_opmode_oneshot_wait)
     vrep.simxFinish(client_id)
     sys.exit(1)
 
