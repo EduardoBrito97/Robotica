@@ -4,7 +4,35 @@ import numpy as np
 import math
 import matplotlib as mpl
 
-def main(client_id, vrep):
+vrep = None
+client_id = None
+
+def get_object_pos(object_name):
+    _, object_handle = vrep.simxGetObjectHandle(client_id, object_name, vrep.simx_opmode_oneshot_wait)
+    _, object_pos = vrep.simxGetObjectPosition(client_id, object_handle, -1, vrep.simx_opmode_streaming)
+
+    _, orientation = vrep.simxGetObjectOrientation(client_id, object_handle, -1, vrep.simx_opmode_oneshot_wait)
+
+    theta = orientation[2]
+    object_pos[2] = theta
+    return object_pos
+
+def move_to_target(target, steer, left_motor_handle, right_motor_handle):
+    v = 1	#forward velocity
+    kp = 0.5	#steering gain
+    vl = v + kp * steer
+    vr = v - kp * steer
+    #print("V_l =", vl)
+    #print("V_r =", vr)
+
+    error_code = vrep.simxSetJointTargetVelocity(client_id, left_motor_handle, vl, vrep.simx_opmode_streaming)
+    error_code = vrep.simxSetJointTargetVelocity(client_id, right_motor_handle, vr, vrep.simx_opmode_streaming)
+
+def main(client_id_connected, vrep_lib):
+    global vrep, client_id
+    vrep = vrep_lib
+    client_id = client_id_connected
+
     PI=math.pi  #pi=3.14..., constant
 
     #retrieve motor  handles
@@ -44,15 +72,10 @@ def main(client_id, vrep):
         else:
             steer = 0
                 
-        v = 1	#forward velocity
-        kp = 0.5	#steering gain
-        vl = v + kp * steer
-        vr = v - kp * steer
-        print("V_l =", vl)
-        print("V_r =", vr)
+        target_pos = get_object_pos('Target#')
+        print("Objetivo: X = {:.2f}, Y = {:.2f}, Teta = {:.2f}".format(target_pos[0], target_pos[1], target_pos[2]))
 
-        error_code = vrep.simxSetJointTargetVelocity(client_id, left_motor_handle, vl, vrep.simx_opmode_streaming)
-        error_code = vrep.simxSetJointTargetVelocity(client_id, right_motor_handle, vr, vrep.simx_opmode_streaming)
+        move_to_target(target_pos, steer, left_motor_handle, right_motor_handle)
 
         time.sleep(0.2) #loop executes once every 0.2 seconds (= 5 Hz)
 
