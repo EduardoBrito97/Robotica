@@ -27,7 +27,7 @@ def move_to_target(target):
     robot_pos = get_object_pos('Pioneer_p3dx')
     #print("Posição Robô: X = {:.2f}, Y = {:.2f}, Teta = {:.2f}".format(robot_pos[0], robot_pos[1], robot_pos[2]))
 
-    k_p = 0.4
+    k_p = 0.8
     k_a = 1.4
 
     delta_x = target[0] - robot_pos[0]
@@ -37,15 +37,20 @@ def move_to_target(target):
 
     v = k_p * ro
 
-    if (alpha <= (-PI/2)):
+    if alpha <= (-PI / 2):
         v = -v
         alpha += PI
-    elif(alpha > (PI / 2)):
+    elif alpha > (PI / 2):
         v = -v
         alpha -= PI
 
     # Beta não importa, pois não precisamos saber a orientação
     w = (k_a * alpha)
+
+    if w > 0.01:
+        v = 0
+    else:
+        w = 0
 
     lw_half = ((L*w)/2) 
     vl = v - lw_half
