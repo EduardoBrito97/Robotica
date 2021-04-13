@@ -25,11 +25,10 @@ def move_to_target(target):
     _, right_motor_handle = vrep.simxGetObjectHandle(client_id, 'RightMotor#', vrep.simx_opmode_oneshot_wait)
 
     robot_pos = get_object_pos('Pioneer_p3dx')
-    print("Posição Robô: X = {:.2f}, Y = {:.2f}, Teta = {:.2f}".format(robot_pos[0], robot_pos[1], robot_pos[2]))
+    #print("Posição Robô: X = {:.2f}, Y = {:.2f}, Teta = {:.2f}".format(robot_pos[0], robot_pos[1], robot_pos[2]))
 
     k_p = 0.4
     k_a = 1.4
-    k_b = 0
 
     delta_x = target[0] - robot_pos[0]
     delta_y = target[1] - robot_pos[1]
@@ -45,11 +44,8 @@ def move_to_target(target):
         v = -v
         alpha -= PI
 
-    beta = -robot_pos[2] - alpha + target[2]
-    w = (k_a * alpha) + (k_b * beta)
-
-    if (ro < 0.08):
-        v = 0
+    # Beta não importa, pois não precisamos saber a orientação
+    w = (k_a * alpha)
 
     lw_half = ((L*w)/2) 
     vl = v - lw_half
@@ -65,32 +61,29 @@ def main(client_id_connected, vrep_lib):
 
     target_pos = None
 
-    sensor_h = [] #empty list for handles
-    sensor_val = np.array([]) #empty array for sensor measurements
+    # Pegando os handles dos sensores ultrassom
+    sensor_h = []
+    sensor_val = np.array([]) # Inicializando o array de valores
 
-    #orientation of all the sensors: 
+    # Orientação dos sensores 
     sensor_loc = np.array([-PI/2, -50/180.0*PI,-30/180.0*PI,-10/180.0*PI,10/180.0*PI,30/180.0*PI,50/180.0*PI,PI/2,PI/2,130/180.0*PI,150/180.0*PI,170/180.0*PI,-170/180.0*PI,-150/180.0*PI,-130/180.0*PI,-PI/2]) 
 
-    #for loop to retrieve sensor arrays and initiate sensors
-    for x in range(1,16+1):
-            _, sensor_handle = vrep.simxGetObjectHandle(client_id, 'Pioneer_p3dx_ultrasonicSensor'+str(x), vrep.simx_opmode_oneshot_wait)
-            sensor_h.append(sensor_handle) #keep list of handles        
-            _, detection_state, detected_point, detected_object_handle, detected_surface_normal_vector = vrep.simxReadProximitySensor(client_id, sensor_handle, vrep.simx_opmode_streaming)                
-            sensor_val = np.append(sensor_val, np.linalg.norm(detected_point)) #get list of values            
+    for x in range(1, 16 + 1):
+        _, sensor_handle = vrep.simxGetObjectHandle(client_id, 'Pioneer_p3dx_ultrasonicSensor' + str(x), vrep.simx_opmode_oneshot_wait)
+        sensor_h.append(sensor_handle) 
 
-    t = time.time()
-
-    while (time.time() - t) < 60:
-        #Loop Execution
-        sensor_val=np.array([])    
-        for x in range(1,16+1):
-            error_code, detection_state, detected_point, detected_object_handle, detected_surface_normal_vector = vrep.simxReadProximitySensor(client_id, sensor_h[x-1], vrep.simx_opmode_buffer)                
-            sensor_val = np.append(sensor_val, np.linalg.norm(detected_point)) #get list of values
-
-        #controller specific
-        sensor_sq = sensor_val[0:8] * sensor_val[0:8] #square the values of front-facing sensors 1-8
+        _, _, detected_point, _, _ = vrep.simxReadProximitySensor(client_id, sensor_handle, vrep.simx_opmode_streaming)                
+        sensor_val = np.append(sensor_val, np.linalg.norm(detected_point)) # Atualizando os valores do sensor
             
-        min_ind = np.where(sensor_sq==np.min(sensor_sq))
+    while True:
+        sensor_val = np.array([])
+        for x in range(1, 16 + 1):
+            _, _, detected_point, _, _ = vrep.simxReadProximitySensor(client_id, sensor_h[x-1], vrep.simx_opmode_buffer)                
+            sensor_val = np.append(sensor_val, np.linalg.norm(detected_point)) # Atualizando os valores do sensor
+
+        sensor_sq = sensor_val[0:8] * sensor_val[0:8] # square the values of front-facing sensors 1-8
+            
+        min_ind = np.where(sensor_sq == np.min(sensor_sq))
         min_ind = min_ind[0][0]
         
         old_target = target_pos
@@ -101,4 +94,4 @@ def main(client_id_connected, vrep_lib):
 
         move_to_target(target_pos)
 
-        time.sleep(0.01) #loop executes once every 0.05 seconds (= 20 Hz)
+        time.sleep(0.01) # Loop executa numa taxa de 20 Hz
