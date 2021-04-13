@@ -21,15 +21,15 @@ def get_object_pos(object_name):
     return object_pos
 
 def move_to_target(target):
-    _, left_motor_handle = vrep.simxGetObjectHandle(client_id, 'Pioneer_p3dx_leftMotor', vrep.simx_opmode_oneshot_wait)
-    _, right_motor_handle = vrep.simxGetObjectHandle(client_id, 'Pioneer_p3dx_rightMotor', vrep.simx_opmode_oneshot_wait)
+    _, left_motor_handle = vrep.simxGetObjectHandle(client_id, 'LeftMotor#', vrep.simx_opmode_oneshot_wait)
+    _, right_motor_handle = vrep.simxGetObjectHandle(client_id, 'RightMotor#', vrep.simx_opmode_oneshot_wait)
 
     robot_pos = get_object_pos('Pioneer_p3dx')
     print("Posição Robô: X = {:.2f}, Y = {:.2f}, Teta = {:.2f}".format(robot_pos[0], robot_pos[1], robot_pos[2]))
 
-    k_p = 4.0
-    k_a = 14.0
-    k_b = -9.0
+    k_p = 0.4
+    k_a = 1.4
+    k_b = 0
 
     delta_x = target[0] - robot_pos[0]
     delta_y = target[1] - robot_pos[1]
