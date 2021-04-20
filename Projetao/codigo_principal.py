@@ -10,6 +10,49 @@ PI = math.pi
 
 L = 0.33
 
+def to_180_range(angle):
+    angle = math.fmod(angle,2*PI)
+    if(angle < -PI):
+        angle += (2*PI)
+    elif(angle> PI):
+        angle -= (2*PI)
+    return angle
+
+def is_far_enough(sensor_1,sensor_2):
+    if(sensor_1 < 0.01):
+        return sensor_2 > 0.3 or sensor_2 < 0.01
+    elif(sensor_2 < 0.01):
+        return sensor_1 > 0.3 or sensor_1 < 0.01 
+    
+    mean = (sensor_1 + sensor_2)/2
+    return mean > 0.3
+
+def turn(sensor_left_1,sensor_left_2,sensor_right_1,sensor_right_2,orientation_before,orientation_now):
+    k_w = 0.1
+    vl = 0
+    vr = 0
+
+    orientation_now = to_180_range(orientation_now)
+    orientation_before = to_180_range(orientation_before)
+
+    if(is_far_enough(sensor_left_1,sensor_left_2)):
+        vl = -1
+        vr = 1
+    elif(is_far_enough(sensor_right_1,sensor_right_2)):
+        vl = 1
+        vr = -1
+    target = abs(abs(orientation_before) - abs(orientation_now)) - (PI/2)
+
+
+    # print("Esquerda para: 1 = {:.2f}, 2 = {:.2f}".format(sensor_left_1, sensor_left_2))
+    # print("Direita para: 1 = {:.2f}, 2 = {:.2f}".format(sensor_right_1, sensor_right_2))
+
+
+    set_speed(vl*k_w,vr*k_w)
+
+    return abs(target) < 0.01
+
+
 def get_object_pos(object_name):
     _, object_handle = vrep.simxGetObjectHandle(client_id, object_name, vrep.simx_opmode_oneshot_wait)
     _, object_pos = vrep.simxGetObjectPosition(client_id, object_handle, -1, vrep.simx_opmode_streaming)
@@ -67,6 +110,8 @@ def main(client_id_connected, vrep_lib):
     client_id = client_id_connected
 
     target_pos = None
+    done_turn = True
+    orientation_before = None
 
     # Pegando os handles dos sensores ultrassom
     sensor_h = []
@@ -75,7 +120,7 @@ def main(client_id_connected, vrep_lib):
     # Orientação dos sensores 
     sensor_loc = np.array([-PI/2, -50/180.0*PI,-30/180.0*PI,-10/180.0*PI,10/180.0*PI,30/180.0*PI,50/180.0*PI,PI/2,PI/2,130/180.0*PI,150/180.0*PI,170/180.0*PI,-170/180.0*PI,-150/180.0*PI,-130/180.0*PI,-PI/2]) 
 
-    for x in range(1, 16 + 1):
+    for x in range(1, 17 + 1):
         _, sensor_handle = vrep.simxGetObjectHandle(client_id, 'Pioneer_p3dx_ultrasonicSensor' + str(x), vrep.simx_opmode_oneshot_wait)
         sensor_h.append(sensor_handle) 
 
@@ -84,7 +129,7 @@ def main(client_id_connected, vrep_lib):
             
     while True:
         sensor_val = np.array([])
-        for x in range(1, 16 + 1):
+        for x in range(1, 17 + 1):
             _, _, detected_point, _, _ = vrep.simxReadProximitySensor(client_id, sensor_h[x-1], vrep.simx_opmode_buffer)                
             sensor_val = np.append(sensor_val, np.linalg.norm(detected_point)) # Atualizando os valores do sensor
 
@@ -99,36 +144,30 @@ def main(client_id_connected, vrep_lib):
         if old_target != target_pos:
             print("Objetivo atualizado para: X = {:.2f}, Y = {:.2f}, Teta = {:.2f}".format(target_pos[0], target_pos[1], target_pos[2]))
 
-        if sensor_sq[min_ind]<0.2:
-            steer = -1/sensor_loc[min_ind]
-        else:
-            steer = 0
-        
-        sensor_left_1 = sensor_val[0]
-        sensor_left_2 = sensor_val[15]
 
         sensor_front_1 = sensor_val[3]
         sensor_front_2 = sensor_val[4]
-
-        sensor_right_1 = sensor_val[7]
-        sensor_right_2 = sensor_val[8]
+        sensor_front_3 = sensor_val[16]
 
         sensor_back_1 = sensor_val[11]
         sensor_back_2 = sensor_val[12]
 
-        print("Frente para: 1 = {:.2f}, 2 = {:.2f}".format(sensor_front_1, sensor_front_2))
-        print("Atras para: 1 = {:.2f}, 2 = {:.2f}".format(sensor_back_1, sensor_back_2))
-        print("Esquerda para: 1 = {:.2f}, 2 = {:.2f}".format(sensor_left_1, sensor_left_2))
-        print("Direita para: 1 = {:.2f}, 2 = {:.2f}".format(sensor_right_1, sensor_right_2))
+        print("Frente para: 1 = {:.2f}, 2 = {:.2f}, 3 = {:.2f}".format(sensor_front_1, sensor_front_2, sensor_front_3))
+        #print("Atras para: 1 = {:.2f}, 2 = {:.2f}".format(sensor_back_1, sensor_back_2))
 
-        v = 1	#forward velocity
-        kp = 0.5	#steering gain
-        vl = v + kp * steer
-        vr = v - kp * steer
-        #print("V_l =", vl)
-        #print("V_r =", vr)
-        set_speed(0, 0)
+        robot_pos = get_object_pos('Pioneer_p3dx')
 
-        #move_to_target(target_pos)
+        if (is_far_enough(sensor_front_1,sensor_front_2)) and done_turn:
+            set_speed(1, 1)
+            orientation_before = robot_pos[2]
 
-        time.sleep(0.01) # Loop executa numa taxa de 20 Hz
+            sensor_left_1 = sensor_val[0]
+            sensor_left_2 = sensor_val[15]
+
+            sensor_right_1 = sensor_val[7]
+            sensor_right_2 = sensor_val[8]
+        else:
+            orientation_now = robot_pos[2]
+            done_turn = turn(sensor_left_1,sensor_left_2,sensor_right_1,sensor_right_2,orientation_before,orientation_now)
+
+        #time.sleep(0.01) # Loop executa numa taxa de 20 Hz
