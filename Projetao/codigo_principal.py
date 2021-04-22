@@ -20,15 +20,15 @@ def to_180_range(angle):
 
 def is_far_enough(sensor_1,sensor_2):
     if(sensor_1 < 0.01):
-        return sensor_2 > 0.3 or sensor_2 < 0.01
+        return sensor_2 > 0.1 or sensor_2 < 0.01
     elif(sensor_2 < 0.01):
-        return sensor_1 > 0.3 or sensor_1 < 0.01 
+        return sensor_1 > 0.1 or sensor_1 < 0.01 
     
     mean = (sensor_1 + sensor_2)/2
-    return mean > 0.3
+    return mean > 0.1
 
 def turn(sensor_left_1,sensor_left_2,sensor_right_1,sensor_right_2,orientation_before,orientation_now):
-    k_w = 0.1
+    k_w = 0.08
     vl = 0
     vr = 0
 
@@ -47,10 +47,13 @@ def turn(sensor_left_1,sensor_left_2,sensor_right_1,sensor_right_2,orientation_b
     # print("Esquerda para: 1 = {:.2f}, 2 = {:.2f}".format(sensor_left_1, sensor_left_2))
     # print("Direita para: 1 = {:.2f}, 2 = {:.2f}".format(sensor_right_1, sensor_right_2))
 
+    #print( 'before : ',orientation_before)
+    #print('now: ',orientation_now)
+    #print('target ',target)
 
     set_speed(vl*k_w,vr*k_w)
 
-    return abs(target) < 0.01
+    return abs(target) < 0.04
 
 
 def get_object_pos(object_name):
