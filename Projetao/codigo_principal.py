@@ -20,15 +20,15 @@ def to_180_range(angle):
 
 def is_far_enough(sensor_1,sensor_2):
     if(sensor_1 < 0.01):
-        return sensor_2 > 0.1 or sensor_2 < 0.01
+        return sensor_2 > 0.2 or sensor_2 < 0.01
     elif(sensor_2 < 0.01):
-        return sensor_1 > 0.1 or sensor_1 < 0.01 
+        return sensor_1 > 0.2 or sensor_1 < 0.01 
     
     mean = (sensor_1 + sensor_2)/2
-    return mean > 0.1
+    return mean > 0.2
 
-def turn(sensor_left_1,sensor_left_2,sensor_right_1,sensor_right_2,orientation_before,orientation_now):
-    k_w = 0.08
+def turn(sensor_left_1,sensor_left_2,sensor_right_1,sensor_right_2,orientation_before,orientation_now,target_before):
+    k_w = 0.05
     vl = 0
     vr = 0
 
@@ -47,13 +47,17 @@ def turn(sensor_left_1,sensor_left_2,sensor_right_1,sensor_right_2,orientation_b
     # print("Esquerda para: 1 = {:.2f}, 2 = {:.2f}".format(sensor_left_1, sensor_left_2))
     # print("Direita para: 1 = {:.2f}, 2 = {:.2f}".format(sensor_right_1, sensor_right_2))
 
-    #print( 'before : ',orientation_before)
-    #print('now: ',orientation_now)
-    #print('target ',target)
+    # print( 'before : ',orientation_before)
+    # print('now: ',orientation_now)
+    # print('target ',target)
 
-    set_speed(vl*k_w,vr*k_w)
 
-    return abs(target) < 0.04
+    set_speed(vl*k_w*abs(target),vr*k_w*abs(target))
+
+    diference =  abs(target_before) - abs(target)
+    target_before = target
+
+    return (diference <= 0),target_before 
 
 
 def get_object_pos(object_name):
@@ -155,7 +159,7 @@ def main(client_id_connected, vrep_lib):
         sensor_back_1 = sensor_val[11]
         sensor_back_2 = sensor_val[12]
 
-        print("Frente para: 1 = {:.2f}, 2 = {:.2f}, 3 = {:.2f}".format(sensor_front_1, sensor_front_2, sensor_front_3))
+        #print("Frente para: 1 = {:.2f}, 2 = {:.2f}, 3 = {:.2f}".format(sensor_front_1, sensor_front_2, sensor_front_3))
         #print("Atras para: 1 = {:.2f}, 2 = {:.2f}".format(sensor_back_1, sensor_back_2))
 
         robot_pos = get_object_pos('Pioneer_p3dx')
@@ -163,6 +167,7 @@ def main(client_id_connected, vrep_lib):
         if (is_far_enough(sensor_front_1,sensor_front_2)) and done_turn:
             set_speed(1, 1)
             orientation_before = robot_pos[2]
+            target_before = 10
 
             sensor_left_1 = sensor_val[0]
             sensor_left_2 = sensor_val[15]
@@ -171,6 +176,6 @@ def main(client_id_connected, vrep_lib):
             sensor_right_2 = sensor_val[8]
         else:
             orientation_now = robot_pos[2]
-            done_turn = turn(sensor_left_1,sensor_left_2,sensor_right_1,sensor_right_2,orientation_before,orientation_now)
+            done_turn,target_before = turn(sensor_left_1,sensor_left_2,sensor_right_1,sensor_right_2,orientation_before,orientation_now,target_before)
 
         #time.sleep(0.01) # Loop executa numa taxa de 20 Hz
