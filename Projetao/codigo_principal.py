@@ -3,6 +3,7 @@ import time
 import numpy as np
 import math
 import matplotlib as mpl
+from graph import Graph
 
 vrep = None
 client_id = None
@@ -119,6 +120,8 @@ def main(client_id_connected, vrep_lib):
     target_pos = None
     done_turn = True
     orientation_before = None
+    conection = False
+    last_vertex = None
 
     # Pegando os handles dos sensores ultrassom
     sensor_h = []
@@ -126,6 +129,8 @@ def main(client_id_connected, vrep_lib):
 
     # Orientação dos sensores 
     sensor_loc = np.array([-PI/2, -50/180.0*PI,-30/180.0*PI,-10/180.0*PI,10/180.0*PI,30/180.0*PI,50/180.0*PI,PI/2,PI/2,130/180.0*PI,150/180.0*PI,170/180.0*PI,-170/180.0*PI,-150/180.0*PI,-130/180.0*PI,-PI/2]) 
+
+    grafo_maze = Graph()
 
     for x in range(1, 17 + 1):
         _, sensor_handle = vrep.simxGetObjectHandle(client_id, 'Pioneer_p3dx_ultrasonicSensor' + str(x), vrep.simx_opmode_oneshot_wait)
@@ -176,6 +181,20 @@ def main(client_id_connected, vrep_lib):
             sensor_right_2 = sensor_val[8]
         else:
             orientation_now = robot_pos[2]
+
+            if(abs(abs(orientation_before) - abs(orientation_now)) < 0.001 ):
+                conection = True
             done_turn,target_before = turn(sensor_left_1,sensor_left_2,sensor_right_1,sensor_right_2,orientation_before,orientation_now,target_before)
 
+        if(conection == True):
+            conection = False
+            if(last_vertex is not None):
+                print(abs(abs(last_vertex[0])-abs(robot_pos[0])),abs(abs(last_vertex[1])-abs(robot_pos[1])))
+                if(abs(abs(last_vertex[0])-abs(robot_pos[0])) < 0.35 and abs(abs(last_vertex[1])-abs(robot_pos[1])) < 0.35):
+                    print("is a endpoint")
+                vertex = str(robot_pos[0]) + "," + str(robot_pos[1])
+                last_vertex = robot_pos.copy()
+            else:
+                vertex = str(robot_pos[0]) + "," + str(robot_pos[1])
+                last_vertex = robot_pos.copy()
         #time.sleep(0.01) # Loop executa numa taxa de 20 Hz
