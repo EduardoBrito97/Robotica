@@ -42,6 +42,48 @@ class Graph(object):
             else:
                 self._graph_dict[x] = [y]
 
+    def get_shortest_path(self, start, goal):
+        """ returns None if there is no shortest path
+            empty if there start == goal
+            shortest path in order as list
+        """
+        explored = []
+        
+        # Queue for traversing the
+        # graph in the BFS
+        queue = [[start]]
+        
+        # If the desired node is
+        # reached
+        if start == goal:
+            return []
+        
+        # Loop to traverse the graph
+        # with the help of the queue
+        while queue:
+            path = queue.pop(0)
+            node = path[-1]
+            
+            # Condition to check if the
+            # current node is not visited
+            if node not in explored:
+                neighbours = self._graph_dict[node]
+                
+                # Loop to iterate over the
+                # neighbours of the node
+                for neighbour in neighbours:
+                    new_path = list(path)
+                    new_path.append(neighbour)
+                    queue.append(new_path)
+                    
+                    # Condition to check if the
+                    # neighbour node is the goal
+                    if neighbour == goal:
+                        return new_path
+                explored.append(node)
+    
+        return None
+
     def __generate_edges(self):
         """ A static method generating the edges of the 
             graph "graph". Edges are represented as sets 
