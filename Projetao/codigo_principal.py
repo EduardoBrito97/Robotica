@@ -3,6 +3,7 @@ import time
 import numpy as np
 import math
 import matplotlib as mpl
+import logging
 from graph import Graph
 
 vrep = None
@@ -19,21 +20,21 @@ def to_180_range(angle):
         angle -= (2*PI)
     return angle
 
-def is_far_enough(sensor_1,sensor_2):
-    if(sensor_1 < 0.01):
-        return sensor_2 > 0.30 or sensor_2 < 0.01
-    elif(sensor_2 < 0.01):
-        return sensor_1 > 0.30 or sensor_1 < 0.01 
+def is_far_enough(sens_1, sens_2):
+    if(sens_1 < 0.01):
+        return sens_2 > 0.30 or sens_2 < 0.01
+    elif(sens_2 < 0.01):
+        return sens_1 > 0.30 or sens_1 < 0.01 
     
-    mean = (sensor_1 + sensor_2)/2
+    mean = (sens_1 + sens_2)/2
     return mean > 0.30
 
-def between_walls(sensor_1, sensor_2, sensor_3, sensor_4):
+def between_walls(sens_1, sens_2, sens_3, sens_4):
     sup = 0.37
     inf = 0.02
-    return (sensor_1 < sup and sensor_2 < sup and sensor_3 < sup and sensor_4 < sup) and (sensor_1 > inf and sensor_2 > inf and sensor_3 > inf and sensor_4 > inf)
+    return (sens_1 < sup and sens_2 < sup and sens_3 < sup and sens_4 < sup) and (sens_1 > inf and sens_2 > inf and sens_3 > inf and sens_4 > inf)
 
-def turn(sensor_left_1, sensor_left_2, sensor_right_1, sensor_right_2, orientation_before, orientation_now, target_before):
+def turn(sens_l_1, sens_l_2, sens_r_1, sens_r_2, orientation_before, orientation_now, target_before):
     k_w = 0.05
     vl = 0
     vr = 0
@@ -41,24 +42,24 @@ def turn(sensor_left_1, sensor_left_2, sensor_right_1, sensor_right_2, orientati
     orientation_now = to_180_range(orientation_now)
     orientation_before = to_180_range(orientation_before)
 
-    if between_walls(sensor_left_1, sensor_left_2, sensor_right_1, sensor_right_2):
+    if between_walls(sens_l_1, sens_l_2, sens_r_1, sens_r_2):
         print('is a endpoint')
         vl = 0
         vr = 0
-    elif is_far_enough(sensor_left_1, sensor_left_2):
+    elif is_far_enough(sens_l_1, sens_l_2):
         vl = -1
         vr = 1
-    elif is_far_enough(sensor_right_1, sensor_right_2):
+    elif is_far_enough(sens_r_1, sens_r_2):
         vl = 1
         vr = -1
     target = abs(abs(orientation_before) - abs(orientation_now)) - (PI/2)
 
-    print("Esquerda para: 1 = {:.2f}, 2 = {:.2f}".format(sensor_left_1, sensor_left_2))
-    print("Direita para: 1 = {:.2f}, 2 = {:.2f}".format(sensor_right_1, sensor_right_2))
+    #print_sensors("Esquerda", sens_l_1, sens_l_2)
+    #print_sensors("Direita", sens_r_1, sens_r_2)
 
-    # print( 'before : ',orientation_before)
-    # print('now: ',orientation_now)
-    # print('target ',target)
+    #print('before : ',orientation_before)
+    #print('now: ',orientation_now)
+    #print('target ',target)
 
     set_speed(vl*k_w*abs(target), vr*k_w*abs(target))
 
@@ -79,7 +80,6 @@ def get_object_pos(object_name):
 
 def move_to_target(target):
     robot_pos = get_object_pos('Pioneer_p3dx')
-    #print("Posição Robô: X = {:.2f}, Y = {:.2f}, Teta = {:.2f}".format(robot_pos[0], robot_pos[1], robot_pos[2]))
 
     k_p = 0.8
     k_a = 1.4
@@ -90,7 +90,6 @@ def move_to_target(target):
     alpha = -robot_pos[2] + math.atan2(delta_y, delta_x)
 
     v = k_p * ro
-
     if alpha <= (-PI / 2):
         v = -v
         alpha += PI
@@ -127,20 +126,35 @@ def update_graph(robot_pos, graph, last_vertex):
     print(str(graph))
     return last_vertex
 
+def get_ultrassom_values(vrep, client_id, sensor_h):
+    sensor_val = np.array([])
+    for x in range(1, 16 + 1):
+        _, _, detected_point, _, _ = vrep.simxReadProximitySensor(client_id, sensor_h[x-1], vrep.simx_opmode_buffer)                
+        sensor_val = np.append(sensor_val, np.linalg.norm(detected_point))
+    return sensor_val
+
 def get_sensor_front(sensor_val):
-    sensor_front_1 = sensor_val[3]
-    sensor_front_2 = sensor_val[4]
-    return sensor_front_1, sensor_front_2
+    sens_f_1 = sensor_val[3]
+    sens_f_2 = sensor_val[4]
+    return sens_f_1, sens_f_2
+
+def get_sensor_back(sensor_val):
+    sens_b_1 = sensor_val[11]
+    sens_b_2 = sensor_val[12]
+    return sens_b_1, sens_b_2
 
 def get_sensor_left(sensor_val):
-    sensor_left_1 = sensor_val[0]
-    sensor_left_2 = sensor_val[15]
-    return sensor_left_1, sensor_left_2
+    sens_l_1 = sensor_val[0]
+    sens_l_2 = sensor_val[15]
+    return sens_l_1, sens_l_2
 
 def get_sensor_right(sensor_val):
-    sensor_right_1 = sensor_val[7]
-    sensor_right_2 = sensor_val[8]
-    return sensor_right_1, sensor_right_2
+    sens_r_1 = sensor_val[7]
+    sens_r_2 = sensor_val[8]
+    return sens_r_1, sens_r_2
+
+def print_sensors(sensor, sens_1, sens_2):
+    print(str(sensor) + " para: 1 = {:.2f}, 2 = {:.2f}".format(sens_1, sens_2))
 
 def main(client_id_connected, vrep_lib):
     global vrep, client_id
@@ -157,7 +171,7 @@ def main(client_id_connected, vrep_lib):
     open_vertices = []
 
     # Pegando os handles dos sensores ultrassom
-    sensor_h = []
+    sensor_h = [] # Atenção! Não utilizar o sensor_h dá um delay para pegar os valores dos sensores
     sensor_val = np.array([]) # Inicializando o array de valores
 
     graph = Graph()
@@ -173,11 +187,10 @@ def main(client_id_connected, vrep_lib):
 
         sens_f_1, sens_f_2 = get_sensor_front(sensor_val)
 
-        #sensor_back_1 = sensor_val[11]
-        #sensor_back_2 = sensor_val[12]
+        #sens_b_1, sens_b_2 = get_sensor_back(sensor_val)
 
-        #print("Frente para: 1 = {:.2f}, 2 = {:.2f}".format(sensor_front_1, sensor_front_2))
-        #print("Atras para: 1 = {:.2f}, 2 = {:.2f}".format(sensor_back_1, sensor_back_2))
+        #print_sensors("Frente", sens_f_1, sens_f_2)
+        #print_sensors("Atras", sens_b_1, sens_b_2)
 
         robot_pos = get_object_pos('Pioneer_p3dx')
 
@@ -199,8 +212,8 @@ def main(client_id_connected, vrep_lib):
             elif not (is_there_an_opening_left or is_there_an_opening_right):
                 wall_toggle = False
 
-            #print("Esquerda para: 1 = {:.2f}, 2 = {:.2f}".format(sensor_left_1, sensor_left_2))
-            #print("Direita para: 1 = {:.2f}, 2 = {:.2f}".format(sensor_right_1, sensor_right_2))
+            #print_sensors("Esquerda", sens_l_1, sens_l_2)
+            #print_sensors("Direita", sens_r_1, sens_r_2)
         else:
             orientation_now = robot_pos[2]
 
@@ -211,13 +224,5 @@ def main(client_id_connected, vrep_lib):
         if connection:
             connection = False
             last_vertex = update_graph(robot_pos, graph, last_vertex)
-
-
-def get_ultrassom_values(vrep, client_id, sensor_h):
-    sensor_val = np.array([])
-    for x in range(1, 16 + 1):
-        _, _, detected_point, _, _ = vrep.simxReadProximitySensor(client_id, sensor_h[x-1], vrep.simx_opmode_buffer)                
-        sensor_val = np.append(sensor_val, np.linalg.norm(detected_point)) # Atualizando os valores do sensor
-    return sensor_val
-            
-        #time.sleep(0.01) # Loop executa numa taxa de 20 Hz
+    
+    #time.sleep(0.01) # Loop executa numa taxa de 20 Hz
