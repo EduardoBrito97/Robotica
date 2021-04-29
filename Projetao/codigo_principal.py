@@ -21,12 +21,17 @@ def to_180_range(angle):
 
 def is_far_enough(sensor_1,sensor_2):
     if(sensor_1 < 0.01):
-        return sensor_2 > 0.2 or sensor_2 < 0.01
+        return sensor_2 > 0.30 or sensor_2 < 0.01
     elif(sensor_2 < 0.01):
-        return sensor_1 > 0.2 or sensor_1 < 0.01 
+        return sensor_1 > 0.30 or sensor_1 < 0.01 
     
     mean = (sensor_1 + sensor_2)/2
-    return mean > 0.2
+    return mean > 0.30
+
+def between_walls(sensor_1,sensor_2,sensor_3,sensor_4):
+    sup = 0.37
+    inf = 0.02
+    return (sensor_1 < sup and sensor_2 < sup and sensor_3 < sup and sensor_4 < sup) and (sensor_1 > inf and sensor_2 > inf and sensor_3 > inf and sensor_4 > inf)
 
 def turn(sensor_left_1,sensor_left_2,sensor_right_1,sensor_right_2,orientation_before,orientation_now,target_before):
     k_w = 0.05
@@ -36,6 +41,10 @@ def turn(sensor_left_1,sensor_left_2,sensor_right_1,sensor_right_2,orientation_b
     orientation_now = to_180_range(orientation_now)
     orientation_before = to_180_range(orientation_before)
 
+    if(between_walls(sensor_left_1,sensor_left_2,sensor_right_1,sensor_right_2)):
+        print('is a endpoint')
+        vl = 0
+        vr = 0
     if(is_far_enough(sensor_left_1,sensor_left_2)):
         vl = -1
         vr = 1
@@ -45,8 +54,8 @@ def turn(sensor_left_1,sensor_left_2,sensor_right_1,sensor_right_2,orientation_b
     target = abs(abs(orientation_before) - abs(orientation_now)) - (PI/2)
 
 
-    # print("Esquerda para: 1 = {:.2f}, 2 = {:.2f}".format(sensor_left_1, sensor_left_2))
-    # print("Direita para: 1 = {:.2f}, 2 = {:.2f}".format(sensor_right_1, sensor_right_2))
+    #print("Esquerda para: 1 = {:.2f}, 2 = {:.2f}".format(sensor_left_1, sensor_left_2))
+    #print("Direita para: 1 = {:.2f}, 2 = {:.2f}".format(sensor_right_1, sensor_right_2))
 
     # print( 'before : ',orientation_before)
     # print('now: ',orientation_now)
@@ -159,13 +168,13 @@ def main(client_id_connected, vrep_lib):
 
         sensor_front_1 = sensor_val[3]
         sensor_front_2 = sensor_val[4]
-        sensor_front_3 = sensor_val[16]
+        #sensor_front_3 = sensor_val[16]
 
         sensor_back_1 = sensor_val[11]
         sensor_back_2 = sensor_val[12]
 
-        #print("Frente para: 1 = {:.2f}, 2 = {:.2f}, 3 = {:.2f}".format(sensor_front_1, sensor_front_2, sensor_front_3))
-        #print("Atras para: 1 = {:.2f}, 2 = {:.2f}".format(sensor_back_1, sensor_back_2))
+        print("Frente para: 1 = {:.2f}, 2 = {:.2f}".format(sensor_front_1, sensor_front_2))
+        print("Atras para: 1 = {:.2f}, 2 = {:.2f}".format(sensor_back_1, sensor_back_2))
 
         robot_pos = get_object_pos('Pioneer_p3dx')
 
@@ -179,6 +188,10 @@ def main(client_id_connected, vrep_lib):
 
             sensor_right_1 = sensor_val[7]
             sensor_right_2 = sensor_val[8]
+
+            print("Esquerda para: 1 = {:.2f}, 2 = {:.2f}".format(sensor_left_1, sensor_left_2))
+            print("Direita para: 1 = {:.2f}, 2 = {:.2f}".format(sensor_right_1, sensor_right_2))
+
         else:
             orientation_now = robot_pos[2]
 
@@ -189,12 +202,9 @@ def main(client_id_connected, vrep_lib):
         if(conection == True):
             conection = False
             if(last_vertex is not None):
-                print(abs(abs(last_vertex[0])-abs(robot_pos[0])),abs(abs(last_vertex[1])-abs(robot_pos[1])))
-                if(abs(abs(last_vertex[0])-abs(robot_pos[0])) < 0.35 and abs(abs(last_vertex[1])-abs(robot_pos[1])) < 0.35):
-                    print("is a endpoint")
                 vertex = str(robot_pos[0]) + "," + str(robot_pos[1])
                 last_vertex = robot_pos.copy()
             else:
                 vertex = str(robot_pos[0]) + "," + str(robot_pos[1])
                 last_vertex = robot_pos.copy()
-        #time.sleep(0.01) # Loop executa numa taxa de 20 Hz
+        time.sleep(0.01) # Loop executa numa taxa de 20 Hz
