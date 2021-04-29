@@ -53,8 +53,8 @@ def turn(sensor_left_1, sensor_left_2, sensor_right_1, sensor_right_2, orientati
         vr = -1
     target = abs(abs(orientation_before) - abs(orientation_now)) - (PI/2)
 
-    #print("Esquerda para: 1 = {:.2f}, 2 = {:.2f}".format(sensor_left_1, sensor_left_2))
-    #print("Direita para: 1 = {:.2f}, 2 = {:.2f}".format(sensor_right_1, sensor_right_2))
+    print("Esquerda para: 1 = {:.2f}, 2 = {:.2f}".format(sensor_left_1, sensor_left_2))
+    print("Direita para: 1 = {:.2f}, 2 = {:.2f}".format(sensor_right_1, sensor_right_2))
 
     # print( 'before : ',orientation_before)
     # print('now: ',orientation_now)
@@ -127,6 +127,21 @@ def update_graph(robot_pos, graph, last_vertex):
     print(str(graph))
     return last_vertex
 
+def get_sensor_front(sensor_val):
+    sensor_front_1 = sensor_val[3]
+    sensor_front_2 = sensor_val[4]
+    return sensor_front_1, sensor_front_2
+
+def get_sensor_left(sensor_val):
+    sensor_left_1 = sensor_val[0]
+    sensor_left_2 = sensor_val[15]
+    return sensor_left_1, sensor_left_2
+
+def get_sensor_right(sensor_val):
+    sensor_right_1 = sensor_val[7]
+    sensor_right_2 = sensor_val[8]
+    return sensor_right_1, sensor_right_2
+
 def main(client_id_connected, vrep_lib):
     global vrep, client_id
     vrep = vrep_lib
@@ -139,28 +154,24 @@ def main(client_id_connected, vrep_lib):
     is_there_an_opening_left = False
     is_there_an_opening_right = False
     wall_toggle = False
+    open_vertices = []
 
     # Pegando os handles dos sensores ultrassom
     sensor_h = []
     sensor_val = np.array([]) # Inicializando o array de valores
 
     graph = Graph()
-
     for x in range(1, 16 + 1):
         _, sensor_handle = vrep.simxGetObjectHandle(client_id, 'Pioneer_p3dx_ultrasonicSensor' + str(x), vrep.simx_opmode_oneshot_wait)
         sensor_h.append(sensor_handle) 
 
         _, _, detected_point, _, _ = vrep.simxReadProximitySensor(client_id, sensor_handle, vrep.simx_opmode_streaming)                
-        sensor_val = np.append(sensor_val, np.linalg.norm(detected_point)) # Atualizando os valores do sensor
+        sensor_val = np.append(sensor_val, np.linalg.norm(detected_point))
             
     while True:
-        sensor_val = np.array([])
-        for x in range(1, 16 + 1):
-            _, _, detected_point, _, _ = vrep.simxReadProximitySensor(client_id, sensor_h[x-1], vrep.simx_opmode_buffer)                
-            sensor_val = np.append(sensor_val, np.linalg.norm(detected_point)) # Atualizando os valores do sensor
+        sensor_val = get_ultrassom_values(vrep, client_id, sensor_h)
 
-        sensor_front_1 = sensor_val[3]
-        sensor_front_2 = sensor_val[4]
+        sens_f_1, sens_f_2 = get_sensor_front(sensor_val)
 
         #sensor_back_1 = sensor_val[11]
         #sensor_back_2 = sensor_val[12]
@@ -170,37 +181,43 @@ def main(client_id_connected, vrep_lib):
 
         robot_pos = get_object_pos('Pioneer_p3dx')
 
-        if is_far_enough(sensor_front_1, sensor_front_2) and done_turn:
+        if is_far_enough(sens_f_1, sens_f_2) and done_turn:
             set_speed(1, 1)
             orientation_before = robot_pos[2]
             target_before = 10
 
-            sensor_left_1 = sensor_val[0]
-            sensor_left_2 = sensor_val[15]
-            is_there_an_opening_left = (sensor_left_1 < 0.02 or sensor_left_1 > 0.6) and (sensor_left_2 < 0.02 or sensor_left_2 > 0.6)
+            sens_l_1, sens_l_2 = get_sensor_left(sensor_val)
+            is_there_an_opening_left = (sens_l_1 < 0.02 or sens_l_1 > 0.6) and (sens_l_2 < 0.02 or sens_l_2 > 0.6)
 
-            sensor_right_1 = sensor_val[7]
-            sensor_right_2 = sensor_val[8]
-            is_there_an_opening_right = (sensor_right_1 < 0.02 or sensor_right_1 > 0.6) and (sensor_right_2 < 0.02 or sensor_right_2 > 0.6)
+            sens_r_1, sens_r_2 = get_sensor_right(sensor_val)
+            is_there_an_opening_right = (sens_r_1 < 0.02 or sens_r_1 > 0.6) and (sens_r_2 < 0.02 or sens_r_2 > 0.6)
 
             if (is_there_an_opening_left or is_there_an_opening_right) and not wall_toggle:
                 last_vertex = update_graph(robot_pos, graph, last_vertex)
+                open_vertices.append(last_vertex)
                 wall_toggle = True
             elif not (is_there_an_opening_left or is_there_an_opening_right):
                 wall_toggle = False
 
             #print("Esquerda para: 1 = {:.2f}, 2 = {:.2f}".format(sensor_left_1, sensor_left_2))
             #print("Direita para: 1 = {:.2f}, 2 = {:.2f}".format(sensor_right_1, sensor_right_2))
-
         else:
             orientation_now = robot_pos[2]
 
-            if(abs(abs(orientation_before) - abs(orientation_now)) < 0.001 ):
+            if abs(abs(orientation_before) - abs(orientation_now)) < 0.001:
                 connection = True
-            done_turn,target_before = turn(sensor_left_1,sensor_left_2,sensor_right_1,sensor_right_2,orientation_before,orientation_now,target_before)
+            done_turn,target_before = turn(sens_l_1,sens_l_2,sens_r_1,sens_r_2,orientation_before,orientation_now,target_before)
 
         if connection:
             connection = False
             last_vertex = update_graph(robot_pos, graph, last_vertex)
+
+
+def get_ultrassom_values(vrep, client_id, sensor_h):
+    sensor_val = np.array([])
+    for x in range(1, 16 + 1):
+        _, _, detected_point, _, _ = vrep.simxReadProximitySensor(client_id, sensor_h[x-1], vrep.simx_opmode_buffer)                
+        sensor_val = np.append(sensor_val, np.linalg.norm(detected_point)) # Atualizando os valores do sensor
+    return sensor_val
             
         #time.sleep(0.01) # Loop executa numa taxa de 20 Hz
