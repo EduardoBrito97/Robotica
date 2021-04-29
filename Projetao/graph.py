@@ -38,7 +38,7 @@ class Graph(object):
         vertex1, vertex2 = tuple(edge)
         for x, y in [(vertex1, vertex2), (vertex2, vertex1)]:
             if x in self._graph_dict:
-                self._graph_dict[x].add(y)
+                self._graph_dict[x].append(y)
             else:
                 self._graph_dict[x] = [y]
 

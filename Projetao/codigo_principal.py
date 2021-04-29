@@ -53,7 +53,6 @@ def turn(sensor_left_1,sensor_left_2,sensor_right_1,sensor_right_2,orientation_b
         vr = -1
     target = abs(abs(orientation_before) - abs(orientation_now)) - (PI/2)
 
-
     #print("Esquerda para: 1 = {:.2f}, 2 = {:.2f}".format(sensor_left_1, sensor_left_2))
     #print("Direita para: 1 = {:.2f}, 2 = {:.2f}".format(sensor_right_1, sensor_right_2))
 
@@ -61,14 +60,12 @@ def turn(sensor_left_1,sensor_left_2,sensor_right_1,sensor_right_2,orientation_b
     # print('now: ',orientation_now)
     # print('target ',target)
 
-
     set_speed(vl*k_w*abs(target),vr*k_w*abs(target))
 
     diference =  abs(target_before) - abs(target)
     target_before = target
 
-    return (diference <= 0),target_before 
-
+    return (diference <= 0.005),target_before 
 
 def get_object_pos(object_name):
     _, object_handle = vrep.simxGetObjectHandle(client_id, object_name, vrep.simx_opmode_oneshot_wait)
@@ -126,22 +123,18 @@ def main(client_id_connected, vrep_lib):
     vrep = vrep_lib
     client_id = client_id_connected
 
-    target_pos = None
     done_turn = True
     orientation_before = None
-    conection = False
+    connection = False
     last_vertex = None
 
     # Pegando os handles dos sensores ultrassom
     sensor_h = []
     sensor_val = np.array([]) # Inicializando o array de valores
 
-    # Orientação dos sensores 
-    sensor_loc = np.array([-PI/2, -50/180.0*PI,-30/180.0*PI,-10/180.0*PI,10/180.0*PI,30/180.0*PI,50/180.0*PI,PI/2,PI/2,130/180.0*PI,150/180.0*PI,170/180.0*PI,-170/180.0*PI,-150/180.0*PI,-130/180.0*PI,-PI/2]) 
+    graph = Graph()
 
-    grafo_maze = Graph()
-
-    for x in range(1, 17 + 1):
+    for x in range(1, 16 + 1):
         _, sensor_handle = vrep.simxGetObjectHandle(client_id, 'Pioneer_p3dx_ultrasonicSensor' + str(x), vrep.simx_opmode_oneshot_wait)
         sensor_h.append(sensor_handle) 
 
@@ -150,31 +143,18 @@ def main(client_id_connected, vrep_lib):
             
     while True:
         sensor_val = np.array([])
-        for x in range(1, 17 + 1):
+        for x in range(1, 16 + 1):
             _, _, detected_point, _, _ = vrep.simxReadProximitySensor(client_id, sensor_h[x-1], vrep.simx_opmode_buffer)                
             sensor_val = np.append(sensor_val, np.linalg.norm(detected_point)) # Atualizando os valores do sensor
 
-        sensor_sq = sensor_val[0:8] * sensor_val[0:8] # square the values of front-facing sensors 1-8
-            
-        min_ind = np.where(sensor_sq == np.min(sensor_sq))
-        min_ind = min_ind[0][0]
-        
-        old_target = target_pos
-        target_pos = get_object_pos('Target#')
-
-        if old_target != target_pos:
-            print("Objetivo atualizado para: X = {:.2f}, Y = {:.2f}, Teta = {:.2f}".format(target_pos[0], target_pos[1], target_pos[2]))
-
-
         sensor_front_1 = sensor_val[3]
         sensor_front_2 = sensor_val[4]
-        #sensor_front_3 = sensor_val[16]
 
-        sensor_back_1 = sensor_val[11]
-        sensor_back_2 = sensor_val[12]
+        #sensor_back_1 = sensor_val[11]
+        #sensor_back_2 = sensor_val[12]
 
-        print("Frente para: 1 = {:.2f}, 2 = {:.2f}".format(sensor_front_1, sensor_front_2))
-        print("Atras para: 1 = {:.2f}, 2 = {:.2f}".format(sensor_back_1, sensor_back_2))
+        #print("Frente para: 1 = {:.2f}, 2 = {:.2f}".format(sensor_front_1, sensor_front_2))
+        #print("Atras para: 1 = {:.2f}, 2 = {:.2f}".format(sensor_back_1, sensor_back_2))
 
         robot_pos = get_object_pos('Pioneer_p3dx')
 
@@ -189,22 +169,23 @@ def main(client_id_connected, vrep_lib):
             sensor_right_1 = sensor_val[7]
             sensor_right_2 = sensor_val[8]
 
-            print("Esquerda para: 1 = {:.2f}, 2 = {:.2f}".format(sensor_left_1, sensor_left_2))
-            print("Direita para: 1 = {:.2f}, 2 = {:.2f}".format(sensor_right_1, sensor_right_2))
+            #print("Esquerda para: 1 = {:.2f}, 2 = {:.2f}".format(sensor_left_1, sensor_left_2))
+            #print("Direita para: 1 = {:.2f}, 2 = {:.2f}".format(sensor_right_1, sensor_right_2))
 
         else:
             orientation_now = robot_pos[2]
 
             if(abs(abs(orientation_before) - abs(orientation_now)) < 0.001 ):
-                conection = True
+                connection = True
             done_turn,target_before = turn(sensor_left_1,sensor_left_2,sensor_right_1,sensor_right_2,orientation_before,orientation_now,target_before)
 
-        if(conection == True):
-            conection = False
-            if(last_vertex is not None):
-                vertex = str(robot_pos[0]) + "," + str(robot_pos[1])
-                last_vertex = robot_pos.copy()
-            else:
-                vertex = str(robot_pos[0]) + "," + str(robot_pos[1])
-                last_vertex = robot_pos.copy()
-        time.sleep(0.01) # Loop executa numa taxa de 20 Hz
+        if connection == True:
+            connection = False
+            vertex = str(robot_pos[0]) + "," + str(robot_pos[1])
+            graph.add_vertex(vertex)
+            if last_vertex:
+                graph.add_edge((vertex, last_vertex))
+            last_vertex = vertex
+            print(str(graph))
+            
+        #time.sleep(0.01) # Loop executa numa taxa de 20 Hz
