@@ -28,12 +28,12 @@ def is_far_enough(sensor_1,sensor_2):
     mean = (sensor_1 + sensor_2)/2
     return mean > 0.30
 
-def between_walls(sensor_1,sensor_2,sensor_3,sensor_4):
+def between_walls(sensor_1, sensor_2, sensor_3, sensor_4):
     sup = 0.37
     inf = 0.02
     return (sensor_1 < sup and sensor_2 < sup and sensor_3 < sup and sensor_4 < sup) and (sensor_1 > inf and sensor_2 > inf and sensor_3 > inf and sensor_4 > inf)
 
-def turn(sensor_left_1,sensor_left_2,sensor_right_1,sensor_right_2,orientation_before,orientation_now,target_before):
+def turn(sensor_left_1, sensor_left_2, sensor_right_1, sensor_right_2, orientation_before, orientation_now, target_before):
     k_w = 0.05
     vl = 0
     vr = 0
@@ -41,14 +41,14 @@ def turn(sensor_left_1,sensor_left_2,sensor_right_1,sensor_right_2,orientation_b
     orientation_now = to_180_range(orientation_now)
     orientation_before = to_180_range(orientation_before)
 
-    if(between_walls(sensor_left_1,sensor_left_2,sensor_right_1,sensor_right_2)):
+    if between_walls(sensor_left_1, sensor_left_2, sensor_right_1, sensor_right_2):
         print('is a endpoint')
         vl = 0
         vr = 0
-    if(is_far_enough(sensor_left_1,sensor_left_2)):
+    elif is_far_enough(sensor_left_1, sensor_left_2):
         vl = -1
         vr = 1
-    elif(is_far_enough(sensor_right_1,sensor_right_2)):
+    elif is_far_enough(sensor_right_1, sensor_right_2):
         vl = 1
         vr = -1
     target = abs(abs(orientation_before) - abs(orientation_now)) - (PI/2)
@@ -60,12 +60,12 @@ def turn(sensor_left_1,sensor_left_2,sensor_right_1,sensor_right_2,orientation_b
     # print('now: ',orientation_now)
     # print('target ',target)
 
-    set_speed(vl*k_w*abs(target),vr*k_w*abs(target))
+    set_speed(vl*k_w*abs(target), vr*k_w*abs(target))
 
     diference =  abs(target_before) - abs(target)
     target_before = target
 
-    return (diference <= 0),target_before 
+    return (diference <= 0), target_before 
 
 def get_object_pos(object_name):
     _, object_handle = vrep.simxGetObjectHandle(client_id, object_name, vrep.simx_opmode_oneshot_wait)
@@ -158,7 +158,7 @@ def main(client_id_connected, vrep_lib):
 
         robot_pos = get_object_pos('Pioneer_p3dx')
 
-        if (is_far_enough(sensor_front_1,sensor_front_2)) and done_turn:
+        if is_far_enough(sensor_front_1, sensor_front_2) and done_turn:
             set_speed(1, 1)
             orientation_before = robot_pos[2]
             target_before = 10
@@ -179,7 +179,7 @@ def main(client_id_connected, vrep_lib):
                 connection = True
             done_turn,target_before = turn(sensor_left_1,sensor_left_2,sensor_right_1,sensor_right_2,orientation_before,orientation_now,target_before)
 
-        if connection == True:
+        if connection:
             connection = False
             vertex = str(robot_pos[0]) + "," + str(robot_pos[1])
             graph.add_vertex(vertex)
