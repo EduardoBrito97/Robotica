@@ -118,6 +118,15 @@ def set_speed(vl, vr):
     vrep.simxSetJointTargetVelocity(client_id, left_motor_handle, vl, vrep.simx_opmode_streaming)
     vrep.simxSetJointTargetVelocity(client_id, right_motor_handle, vr, vrep.simx_opmode_streaming)
 
+def update_graph(robot_pos, graph, last_vertex):
+    vertex = str(robot_pos[0]) + "," + str(robot_pos[1])
+    graph.add_vertex(vertex)
+    if last_vertex:
+        graph.add_edge((vertex, last_vertex))
+    last_vertex = vertex
+    print(str(graph))
+    return last_vertex
+
 def main(client_id_connected, vrep_lib):
     global vrep, client_id
     vrep = vrep_lib
@@ -127,6 +136,9 @@ def main(client_id_connected, vrep_lib):
     orientation_before = None
     connection = False
     last_vertex = None
+    is_there_an_opening_left = False
+    is_there_an_opening_right = False
+    wall_toggle = False
 
     # Pegando os handles dos sensores ultrassom
     sensor_h = []
@@ -165,9 +177,17 @@ def main(client_id_connected, vrep_lib):
 
             sensor_left_1 = sensor_val[0]
             sensor_left_2 = sensor_val[15]
+            is_there_an_opening_left = (sensor_left_1 < 0.02 or sensor_left_1 > 0.6) and (sensor_left_2 < 0.02 or sensor_left_2 > 0.6)
 
             sensor_right_1 = sensor_val[7]
             sensor_right_2 = sensor_val[8]
+            is_there_an_opening_right = (sensor_right_1 < 0.02 or sensor_right_1 > 0.6) and (sensor_right_2 < 0.02 or sensor_right_2 > 0.6)
+
+            if (is_there_an_opening_left or is_there_an_opening_right) and not wall_toggle:
+                last_vertex = update_graph(robot_pos, graph, last_vertex)
+                wall_toggle = True
+            elif not (is_there_an_opening_left or is_there_an_opening_right):
+                wall_toggle = False
 
             #print("Esquerda para: 1 = {:.2f}, 2 = {:.2f}".format(sensor_left_1, sensor_left_2))
             #print("Direita para: 1 = {:.2f}, 2 = {:.2f}".format(sensor_right_1, sensor_right_2))
@@ -181,11 +201,6 @@ def main(client_id_connected, vrep_lib):
 
         if connection:
             connection = False
-            vertex = str(robot_pos[0]) + "," + str(robot_pos[1])
-            graph.add_vertex(vertex)
-            if last_vertex:
-                graph.add_edge((vertex, last_vertex))
-            last_vertex = vertex
-            print(str(graph))
+            last_vertex = update_graph(robot_pos, graph, last_vertex)
             
         #time.sleep(0.01) # Loop executa numa taxa de 20 Hz
