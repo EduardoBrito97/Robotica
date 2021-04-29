@@ -65,7 +65,7 @@ def turn(sensor_left_1,sensor_left_2,sensor_right_1,sensor_right_2,orientation_b
     diference =  abs(target_before) - abs(target)
     target_before = target
 
-    return (diference <= 0.005),target_before 
+    return (diference <= 0),target_before 
 
 def get_object_pos(object_name):
     _, object_handle = vrep.simxGetObjectHandle(client_id, object_name, vrep.simx_opmode_oneshot_wait)
