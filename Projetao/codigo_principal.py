@@ -151,7 +151,7 @@ def update_graph(robot_pos, graph, last_vertex):
     if last_vertex:
         graph.add_edge((vertex, last_vertex))
     last_vertex = vertex
-    #print(str(graph))
+    print(str(graph))
     return last_vertex
 
 def get_ultrassom_values(vrep, client_id, sensor_h):
@@ -199,8 +199,6 @@ def main(client_id_connected, vrep_lib):
 
     orientation_before = None
     last_vertex = None
-    is_there_an_opening_left = False
-    is_there_an_opening_right = False
     wall_toggle = False
     open_vertices = []
     vertex_index = 0
@@ -250,8 +248,7 @@ def main(client_id_connected, vrep_lib):
         elif state == State.TURN:
             orientation_now = robot_pos[2]
             wall_toggle = True # Assim que dobrarmos, um dos lados vai ficar exposto, por isso precisamos procurar só a partir do próximo muro
-
-            done_turn, target_before = turn(sens_l_1,sens_l_2,sens_r_1,sens_r_2,orientation_before,orientation_now,target_before)
+            done_turn, target_before = turn(sens_l_1, sens_l_2, sens_r_1, sens_r_2, orientation_before, orientation_now, target_before)
 
             if abs(abs(orientation_before) - abs(orientation_now)) < 0.001:
                 last_vertex = update_graph(robot_pos, graph, last_vertex)
