@@ -1,3 +1,5 @@
+from scipy.spatial.distance import euclidean
+
 class Graph(object):
 
     def __init__(self, graph_dict=None):
@@ -14,26 +16,33 @@ class Graph(object):
         return self._graph_dict[vertice]
         
     def all_vertices(self):
-        """ returns the vertices of a graph as a set """
+        """ returns the vertices of the graph as a set """
         return set(self._graph_dict.keys())
 
     def all_edges(self):
-        """ returns the edges of a graph """
+        """ returns the edges of the graph """
         return self.__generate_edges()
 
-    def add_vertex(self, vertex):
-        """ If the vertex "vertex" is not in 
-            self._graph_dict, a key "vertex" with an empty
-            list as a value is added to the dictionary. 
-            Otherwise nothing has to be done. 
+    def add_vertex(self, vertex, min_dist_lim = 0.2):
+        """ If the vertex "vertex" is not in self._graph_dict and its closest vertex is at least min_dist_lim far, 
+            a key "vertex" with an empty list as a value is added to the dictionary.
+            Otherwise nothing has to be done.
+            Returns True if added, False otherwise.
         """
-        if vertex not in self._graph_dict:
+        min_dist = 999
+        for v in self._graph_dict:
+            dist = euclidean(vertex, v)
+            if dist < min_dist:
+                min_dist = dist
+
+        if vertex not in self._graph_dict and min_dist > min_dist_lim:
             self._graph_dict[vertex] = []
+            return True
+        else:
+            return False
 
     def add_edge(self, edge):
-        """ assumes that edge is of type set, tuple or list; 
-            between two vertices can be multiple edges! 
-        """
+        """ adds edge between two vertices. edge can be either list or tuple """
         edge = set(edge)
         vertex1, vertex2 = tuple(edge)
         for x, y in [(vertex1, vertex2), (vertex2, vertex1)]:

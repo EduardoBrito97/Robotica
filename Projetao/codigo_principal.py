@@ -147,11 +147,11 @@ def set_speed(vl, vr):
 
 def update_graph(robot_pos, graph, last_vertex):
     vertex = (robot_pos[0], robot_pos[1])
-    graph.add_vertex(vertex)
-    if last_vertex:
-        graph.add_edge((vertex, last_vertex))
-    last_vertex = vertex
-    print(str(graph))
+    if graph.add_vertex(vertex, 0.3):
+        if last_vertex: 
+            graph.add_edge((vertex, last_vertex))
+        print(str(graph))
+        last_vertex = vertex
     return last_vertex
 
 def get_ultrassom_values(vrep, client_id, sensor_h):
@@ -199,7 +199,8 @@ def main(client_id_connected, vrep_lib):
 
     orientation_before = None
     last_vertex = None
-    wall_toggle = False
+    looking_for_midpoints = True
+    changed_to_turn_state = False
     open_vertices = []
     vertex_index = 0
     state = State.FORWARD
@@ -224,6 +225,7 @@ def main(client_id_connected, vrep_lib):
             
             if not is_far_enough(sens_f_1, sens_f_2):
                 state = State.TURN
+                changed_to_turn_state = True
                 continue
 
             set_speed(1, 1)
@@ -231,30 +233,29 @@ def main(client_id_connected, vrep_lib):
             target_before = 10
 
             sens_l_1, sens_l_2 = get_sensor_left(sensor_val)
-            is_there_an_opening_left = (sens_l_1 < 0.01 or sens_l_1 > 0.65) and (sens_l_2 < 0.01 or sens_l_2 > 0.65)
-
             sens_r_1, sens_r_2 = get_sensor_right(sensor_val)
-            is_there_an_opening_right = (sens_r_1 < 0.01 or sens_r_1 > 0.65) and (sens_r_2 < 0.01 or sens_r_2 > 0.65)
 
-            if (is_there_an_opening_left or is_there_an_opening_right) and not wall_toggle:
+            if not is_between_walls(sens_l_1, sens_l_2, sens_r_1, sens_r_2) and looking_for_midpoints:
                 last_vertex = update_graph(robot_pos, graph, last_vertex)
                 open_vertices.append(last_vertex)
-                wall_toggle = True
-            elif not (is_there_an_opening_left or is_there_an_opening_right):
-                wall_toggle = False
+                looking_for_midpoints = False
+            # Precisamos pegar um midpoint por abertura. Quando já registramos esta abertura, só olhamos novamente caso fiquemos entre paredes novamente
+            elif is_between_walls(sens_l_1, sens_l_2, sens_r_1, sens_r_2):
+                looking_for_midpoints = True
 
             #print_sensors("Esquerda", sens_l_1, sens_l_2)
             #print_sensors("Direita", sens_r_1, sens_r_2)
         elif state == State.TURN:
             orientation_now = robot_pos[2]
-            wall_toggle = True # Assim que dobrarmos, um dos lados vai ficar exposto, por isso precisamos procurar só a partir do próximo muro
+            looking_for_midpoints = True # Assim que dobrarmos, um dos lados vai ficar exposto, por isso precisamos procurar só a partir do próximo muro
             done_turn, target_before = turn(sens_l_1, sens_l_2, sens_r_1, sens_r_2, orientation_before, orientation_now, target_before)
 
-            if abs(abs(orientation_before) - abs(orientation_now)) < 0.001:
+            if changed_to_turn_state:
                 last_vertex = update_graph(robot_pos, graph, last_vertex)
                 if is_between_walls(sens_l_1, sens_l_2, sens_r_1, sens_r_2):
                     state = State.ENDPOINT_RETURN
                     continue
+            changed_to_turn_state = False
 
             if done_turn:
                 state = State.FORWARD
@@ -267,6 +268,7 @@ def main(client_id_connected, vrep_lib):
                     open_vertices.pop(0)
                     vertex_index = 0
                     state = State.TURN
+                    set_target_pos((0,0))
                 # Ainda não chegamos no objetivo, precisamos andar até lá
                 else:
                     # Pegamos o caminho mais curto do último vértice (aka de onde começamos a voltar)
