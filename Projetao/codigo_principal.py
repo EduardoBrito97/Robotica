@@ -200,10 +200,10 @@ def main(client_id_connected, vrep_lib):
             target_before = 10
 
             sens_l_1, sens_l_2 = get_sensor_left(sensor_val)
-            is_there_an_opening_left = (sens_l_1 < 0.02 or sens_l_1 > 0.6) and (sens_l_2 < 0.02 or sens_l_2 > 0.6)
+            is_there_an_opening_left = (sens_l_1 < 0.01 or sens_l_1 > 0.65) and (sens_l_2 < 0.01 or sens_l_2 > 0.65)
 
             sens_r_1, sens_r_2 = get_sensor_right(sensor_val)
-            is_there_an_opening_right = (sens_r_1 < 0.02 or sens_r_1 > 0.6) and (sens_r_2 < 0.02 or sens_r_2 > 0.6)
+            is_there_an_opening_right = (sens_r_1 < 0.01 or sens_r_1 > 0.65) and (sens_r_2 < 0.01 or sens_r_2 > 0.65)
 
             if (is_there_an_opening_left or is_there_an_opening_right) and not wall_toggle:
                 last_vertex = update_graph(robot_pos, graph, last_vertex)
@@ -216,6 +216,7 @@ def main(client_id_connected, vrep_lib):
             #print_sensors("Direita", sens_r_1, sens_r_2)
         else:
             orientation_now = robot_pos[2]
+            wall_toggle = True # Assim que dobrarmos, um dos lados vai ficar exposto, por isso precisamos procurar só a partir do próximo muro
 
             if abs(abs(orientation_before) - abs(orientation_now)) < 0.001:
                 connection = True
