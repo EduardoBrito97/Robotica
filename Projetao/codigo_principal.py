@@ -115,7 +115,10 @@ def move_to_target(target):
     delta_x = target[0] - robot_pos[0]
     delta_y = target[1] - robot_pos[1]
     ro = ((delta_x ** 2) + (delta_y ** 2)) ** (1/2)
-    alpha = -robot_pos[2] + math.atan2(delta_y, delta_x)
+
+    orientation_now = to_180_range(robot_pos[2])
+
+    alpha = -orientation_now + math.atan2(delta_y, delta_x)
 
     v = k_p * ro
     if alpha <= (-PI / 2):
@@ -124,11 +127,12 @@ def move_to_target(target):
     elif alpha > (PI / 2):
         v = -v
         alpha -= PI
-
+    
+    print(alpha)
     # Beta não importa, pois não precisamos saber a orientação
     w = (k_a * alpha)
 
-    if w > 0.01:
+    if abs(w) > 0.01:
         v = 0
     else:
         w = 0
@@ -276,11 +280,11 @@ def main(client_id_connected, vrep_lib):
                     path = graph.get_shortest_path(last_vertex, target)
                     target = path[vertex_index] # agora vamos para o próximo objetivo
 
-                    set_target_pos(target)
                     if euclidean((robot_pos[0], robot_pos[1]), target) <= 0.1:
                         vertex_index += 1
                         set_speed(0, 0)
                     else:
+                        set_target_pos(target)
                         move_to_target(target)
             else:
                 print('There is nowhere to go.')
