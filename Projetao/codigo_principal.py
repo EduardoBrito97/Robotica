@@ -121,14 +121,7 @@ def move_to_target(target):
     alpha = -orientation_now + math.atan2(delta_y, delta_x)
 
     v = k_p * ro
-    if alpha <= (-PI / 2):
-        v = -v
-        alpha += PI
-    elif alpha > (PI / 2):
-        v = -v
-        alpha -= PI
     
-    print(alpha)
     # Beta não importa, pois não precisamos saber a orientação
     w = (k_a * alpha)
 
