@@ -5,12 +5,19 @@ import math
 import matplotlib as mpl
 import logging
 from graph import Graph
+from enum import Enum
 
 vrep = None
 client_id = None
 PI = math.pi
 
 L = 0.33
+
+class State(Enum):
+    FORWARD = 1
+    TURN = 2
+    ENDPOINT_RETURN = 3
+    DEBUG = 4
 
 def to_180_range(angle):
     angle = math.fmod(angle,2*PI)
@@ -35,18 +42,14 @@ def between_walls(sens_1, sens_2, sens_3, sens_4):
     return (sens_1 < sup and sens_2 < sup and sens_3 < sup and sens_4 < sup) and (sens_1 > inf and sens_2 > inf and sens_3 > inf and sens_4 > inf)
 
 def turn(sens_l_1, sens_l_2, sens_r_1, sens_r_2, orientation_before, orientation_now, target_before):
-    k_w = 0.05
+    k_w = 0.3
     vl = 0
     vr = 0
 
     orientation_now = to_180_range(orientation_now)
     orientation_before = to_180_range(orientation_before)
 
-    if between_walls(sens_l_1, sens_l_2, sens_r_1, sens_r_2):
-        print('is a endpoint')
-        vl = 0
-        vr = 0
-    elif is_far_enough(sens_l_1, sens_l_2):
+    if is_far_enough(sens_l_1, sens_l_2):
         vl = -1
         vr = 1
     elif is_far_enough(sens_r_1, sens_r_2):
@@ -133,6 +136,14 @@ def get_ultrassom_values(vrep, client_id, sensor_h):
         sensor_val = np.append(sensor_val, np.linalg.norm(detected_point))
     return sensor_val
 
+def get_first_ultrassom_val_and_update_sensor_h(vrep, client_id, sensor_h, sensor_val):
+    for x in range(1, 16 + 1):
+        _, sensor_handle = vrep.simxGetObjectHandle(client_id, 'Pioneer_p3dx_ultrasonicSensor' + str(x), vrep.simx_opmode_oneshot_wait)
+        sensor_h.append(sensor_handle) 
+
+        _, _, detected_point, _, _ = vrep.simxReadProximitySensor(client_id, sensor_handle, vrep.simx_opmode_streaming)                
+        sensor_val = np.append(sensor_val, np.linalg.norm(detected_point))
+
 def get_sensor_front(sensor_val):
     sens_f_1 = sensor_val[3]
     sens_f_2 = sensor_val[4]
@@ -161,40 +172,36 @@ def main(client_id_connected, vrep_lib):
     vrep = vrep_lib
     client_id = client_id_connected
 
-    done_turn = True
     orientation_before = None
-    connection = False
     last_vertex = None
     is_there_an_opening_left = False
     is_there_an_opening_right = False
     wall_toggle = False
     open_vertices = []
+    state = State.FORWARD
 
     # Pegando os handles dos sensores ultrassom
     sensor_h = [] # Atenção! Não utilizar o sensor_h dá um delay para pegar os valores dos sensores
     sensor_val = np.array([]) # Inicializando o array de valores
 
     graph = Graph()
-    for x in range(1, 16 + 1):
-        _, sensor_handle = vrep.simxGetObjectHandle(client_id, 'Pioneer_p3dx_ultrasonicSensor' + str(x), vrep.simx_opmode_oneshot_wait)
-        sensor_h.append(sensor_handle) 
-
-        _, _, detected_point, _, _ = vrep.simxReadProximitySensor(client_id, sensor_handle, vrep.simx_opmode_streaming)                
-        sensor_val = np.append(sensor_val, np.linalg.norm(detected_point))
+    get_first_ultrassom_val_and_update_sensor_h(vrep, client_id, sensor_h, sensor_val)
             
     while True:
         sensor_val = get_ultrassom_values(vrep, client_id, sensor_h)
-
-        sens_f_1, sens_f_2 = get_sensor_front(sensor_val)
-
+        robot_pos = get_object_pos('Pioneer_p3dx')
+        
         #sens_b_1, sens_b_2 = get_sensor_back(sensor_val)
-
-        #print_sensors("Frente", sens_f_1, sens_f_2)
         #print_sensors("Atras", sens_b_1, sens_b_2)
 
-        robot_pos = get_object_pos('Pioneer_p3dx')
+        if state == State.FORWARD:
+            sens_f_1, sens_f_2 = get_sensor_front(sensor_val)
+            #print_sensors("Frente", sens_f_1, sens_f_2)
+            
+            if not is_far_enough(sens_f_1, sens_f_2):
+                state = State.TURN
+                continue
 
-        if is_far_enough(sens_f_1, sens_f_2) and done_turn:
             set_speed(1, 1)
             orientation_before = robot_pos[2]
             target_before = 10
@@ -214,16 +221,26 @@ def main(client_id_connected, vrep_lib):
 
             #print_sensors("Esquerda", sens_l_1, sens_l_2)
             #print_sensors("Direita", sens_r_1, sens_r_2)
-        else:
+        elif state == State.TURN:
             orientation_now = robot_pos[2]
             wall_toggle = True # Assim que dobrarmos, um dos lados vai ficar exposto, por isso precisamos procurar só a partir do próximo muro
 
-            if abs(abs(orientation_before) - abs(orientation_now)) < 0.001:
-                connection = True
-            done_turn,target_before = turn(sens_l_1,sens_l_2,sens_r_1,sens_r_2,orientation_before,orientation_now,target_before)
+            done_turn, target_before = turn(sens_l_1,sens_l_2,sens_r_1,sens_r_2,orientation_before,orientation_now,target_before)
 
-        if connection:
-            connection = False
-            last_vertex = update_graph(robot_pos, graph, last_vertex)
-    
+            if abs(abs(orientation_before) - abs(orientation_now)) < 0.001:
+                last_vertex = update_graph(robot_pos, graph, last_vertex)
+                if between_walls(sens_l_1, sens_l_2, sens_r_1, sens_r_2):
+                    state = State.ENDPOINT_RETURN
+                    continue
+
+            if done_turn:
+                state = State.FORWARD
+        elif state == State.ENDPOINT_RETURN:
+            print('is a endpoint')
+            set_speed(0, 0)
+        elif state == State.DEBUG:
+            set_speed(0, 0)
+        else:
+            print('state not supported')
+            set_speed(0, 0)
     #time.sleep(0.01) # Loop executa numa taxa de 20 Hz
