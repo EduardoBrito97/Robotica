@@ -6,6 +6,7 @@ import matplotlib as mpl
 import logging
 from graph import Graph
 from enum import Enum
+from scipy.spatial.distance import euclidean
 
 vrep = None
 client_id = None
@@ -138,7 +139,7 @@ def set_speed(vl, vr):
     vrep.simxSetJointTargetVelocity(client_id, right_motor_handle, vr, vrep.simx_opmode_streaming)
 
 def update_graph(robot_pos, graph, last_vertex):
-    vertex = str(robot_pos[0]) + "," + str(robot_pos[1])
+    vertex = (robot_pos[0], robot_pos[1])
     graph.add_vertex(vertex)
     if last_vertex:
         graph.add_edge((vertex, last_vertex))
@@ -195,6 +196,7 @@ def main(client_id_connected, vrep_lib):
     is_there_an_opening_right = False
     wall_toggle = False
     open_vertices = []
+    vertex_index = 0
     state = State.FORWARD
 
     # Pegando os handles dos sensores ultrassom
@@ -253,13 +255,33 @@ def main(client_id_connected, vrep_lib):
             if done_turn:
                 state = State.FORWARD
         elif state == State.ENDPOINT_RETURN:
-            print('is a endpoint')
-            print_sensors("Esquerda", sens_l_1, sens_l_2)
-            print_sensors("Direita", sens_r_1, sens_r_2)
-            set_speed(0, 0)
+            if len(open_vertices) > 0:
+                target = open_vertices[0]
+
+                # Chegamos no objetivo, precisamos dobrar e seguir em frente agora
+                if euclidean((robot_pos[0], robot_pos[1]), target) <= 0.1:
+                    open_vertices.pop(0)
+                    vertex_index = 0
+                    state = State.TURN
+                # Ainda não chegamos no objetivo, precisamos andar até lá
+                else:
+                    # Pegamos o caminho mais curto do último vértice (aka de onde começamos a voltar)
+                    # até a primeira encruzilhada que passamos
+                    path = graph.get_shortest_path(last_vertex, target)
+                    target = path[vertex_index] # agora vamos para o próximo objetivo
+
+                    print(str(target))
+                    if euclidean((robot_pos[0], robot_pos[1]), target) <= 0.1:
+                        vertex_index += 1
+                        set_speed(0, 0)
+                    else:
+                        move_to_target(target)
+            else:
+                print('There is nowhere to go.')
+                set_speed(0, 0)
         elif state == State.DEBUG:
             set_speed(0, 0)
         else:
-            print('state not supported')
+            print('State not supported')
             set_speed(0, 0)
     #time.sleep(0.01) # Loop executa numa taxa de 20 Hz
