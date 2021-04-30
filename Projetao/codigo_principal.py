@@ -36,10 +36,27 @@ def is_far_enough(sens_1, sens_2):
     mean = (sens_1 + sens_2)/2
     return mean > 0.30
 
-def between_walls(sens_1, sens_2, sens_3, sens_4):
-    sup = 0.37
-    inf = 0.02
-    return (sens_1 < sup and sens_2 < sup and sens_3 < sup and sens_4 < sup) and (sens_1 > inf and sens_2 > inf and sens_3 > inf and sens_4 > inf)
+def is_between_walls(sens_l_1, sens_l_2, sens_r_1, sens_r_2):
+    sup = 0.6
+    inf = 0.01
+    
+    l = []
+    if sens_l_1 > inf:
+        l.append(sens_l_1)
+    if sens_l_2 > inf:
+        l.append(sens_l_2)
+    mean_l = sum(l)/len(l)
+    sens_l = mean_l < sup
+
+    r = []
+    if sens_r_1 > inf:
+        r.append(sens_r_1)
+    if sens_r_2 > inf:
+        r.append(sens_r_2)
+    mean_r = sum(r)/len(r)
+    sens_r = mean_r < sup
+
+    return sens_l and sens_r
 
 def turn(sens_l_1, sens_l_2, sens_r_1, sens_r_2, orientation_before, orientation_now, target_before):
     k_w = 0.3
@@ -126,7 +143,7 @@ def update_graph(robot_pos, graph, last_vertex):
     if last_vertex:
         graph.add_edge((vertex, last_vertex))
     last_vertex = vertex
-    print(str(graph))
+    #print(str(graph))
     return last_vertex
 
 def get_ultrassom_values(vrep, client_id, sensor_h):
@@ -229,7 +246,7 @@ def main(client_id_connected, vrep_lib):
 
             if abs(abs(orientation_before) - abs(orientation_now)) < 0.001:
                 last_vertex = update_graph(robot_pos, graph, last_vertex)
-                if between_walls(sens_l_1, sens_l_2, sens_r_1, sens_r_2):
+                if is_between_walls(sens_l_1, sens_l_2, sens_r_1, sens_r_2):
                     state = State.ENDPOINT_RETURN
                     continue
 
@@ -237,6 +254,8 @@ def main(client_id_connected, vrep_lib):
                 state = State.FORWARD
         elif state == State.ENDPOINT_RETURN:
             print('is a endpoint')
+            print_sensors("Esquerda", sens_l_1, sens_l_2)
+            print_sensors("Direita", sens_r_1, sens_r_2)
             set_speed(0, 0)
         elif state == State.DEBUG:
             set_speed(0, 0)
