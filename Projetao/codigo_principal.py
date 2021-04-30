@@ -99,6 +99,13 @@ def get_object_pos(object_name):
     object_pos[2] = theta
     return object_pos
 
+def set_target_pos(target_pos):
+    _, target_handle = vrep.simxGetObjectHandle(client_id, "Target#", vrep.simx_opmode_oneshot_wait)
+    _, target_pos_orig = vrep.simxGetObjectPosition(client_id, target_handle, -1, vrep.simx_opmode_streaming)
+    target_pos = (target_pos[0], target_pos[1], target_pos_orig[2]) # Adicionamos o z do target para não mudar a altura
+
+    vrep.simxSetObjectPosition(client_id, target_handle, -1, target_pos, vrep.simx_opmode_oneshot_wait)
+
 def move_to_target(target):
     robot_pos = get_object_pos('Pioneer_p3dx')
 
@@ -270,7 +277,7 @@ def main(client_id_connected, vrep_lib):
                     path = graph.get_shortest_path(last_vertex, target)
                     target = path[vertex_index] # agora vamos para o próximo objetivo
 
-                    print(str(target))
+                    set_target_pos(target)
                     if euclidean((robot_pos[0], robot_pos[1]), target) <= 0.1:
                         vertex_index += 1
                         set_speed(0, 0)
