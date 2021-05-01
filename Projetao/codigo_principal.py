@@ -29,7 +29,7 @@ def to_180_range(angle):
     return angle
 
 def is_far_enough(sens_1, sens_2):
-    lim = 0.25
+    lim = 0.3
     if(sens_1 < 0.01):
         return sens_2 > lim or sens_2 < 0.01
     elif(sens_2 < 0.01):
@@ -126,7 +126,7 @@ def set_speed(vl, vr):
 
 def update_graph(robot_pos, graph, last_vertex):
     vertex = (robot_pos[0], robot_pos[1])
-    if graph.add_vertex(vertex, 0.9):
+    if graph.add_vertex(vertex, 1):
         if last_vertex: 
             graph.add_edge((last_vertex, vertex))
             graph.add_edge((vertex, last_vertex))
@@ -185,9 +185,16 @@ def main(client_id_connected, vrep_lib):
     orientation_before = None
     last_vertex = None
     open_vertices = []
-    last_detected = []
-    last_detected_lim = 10
     vertex_index = 0
+    
+    last_detected_right = []
+    detected_right = False
+    
+    last_detected_left = []
+    detected_left = False
+    
+    last_detected_lim = 10
+
     state = State.FORWARD
 
     # Pegando os handles dos sensores ultrassom
@@ -208,37 +215,26 @@ def main(client_id_connected, vrep_lib):
         if state == State.FORWARD:
             sens_f_1, sens_f_2 = get_sensor_front(sensor_val)
             #print_sensors("Frente", sens_f_1, sens_f_2)
+
+            # sensores laterais contém apenas booleanos (detectou ou não)
+            sens_l_1, sens_l_2 = get_sensor_left(sensor_detect)
+            sens_r_1, sens_r_2 = get_sensor_right(sensor_detect)
             
             if not is_far_enough(sens_f_1, sens_f_2):
                 state = State.TURN
-                last_vertex = update_graph(robot_pos, graph, last_vertex)
                 if is_between_walls(sens_l_1, sens_l_2, sens_r_1, sens_r_2):
                     state = State.ENDPOINT_RETURN
                     print("Endpoint")
+                last_vertex = update_graph(robot_pos, graph, last_vertex)
                 continue
 
             set_speed(1, 1)
             orientation_before = robot_pos[2]
             target_before = 10
 
-            # sensores laterais contém apenas booleanos (detectou ou não)
-            sens_l_1, sens_l_2 = get_sensor_left(sensor_detect)
-            sens_r_1, sens_r_2 = get_sensor_right(sensor_detect)
+            update_last_detected(last_detected_left, last_detected_lim, last_detected_right, sens_r_1, sens_r_2, sens_l_1, sens_l_2)
+            last_vertex = update_open_vertices(last_detected_right, last_detected_lim, detected_right, robot_pos, graph, last_vertex, open_vertices, last_detected_left, detected_left)
 
-            if len(last_detected) >= last_detected_lim:
-                last_detected.pop(0)
-            
-            if is_between_walls(sens_l_1, sens_l_2, sens_r_1, sens_r_2):
-                last_detected.append(0)
-            else:
-                last_detected.append(1)
-
-            if sum(last_detected) == last_detected_lim:
-                curr_vertex = update_graph(robot_pos, graph, last_vertex)
-                if curr_vertex != last_vertex:
-                    open_vertices.append((robot_pos[0], robot_pos[1]))
-                    last_vertex = curr_vertex
-            
             #print_sensors("Esquerda", sens_l_1, sens_l_2)
             #print_sensors("Direita", sens_r_1, sens_r_2)
         elif state == State.TURN:
@@ -247,7 +243,8 @@ def main(client_id_connected, vrep_lib):
 
             if done_turn:
                 state = State.FORWARD
-                last_detected = []
+                last_detected_right = []
+                last_detected_left = []
         elif state == State.ENDPOINT_RETURN:
             if len(open_vertices) > 0:
                 target = open_vertices[-1]
@@ -284,4 +281,42 @@ def main(client_id_connected, vrep_lib):
         else:
             print('State not supported')
             set_speed(0, 0)
-    #time.sleep(0.01) # Loop executa numa taxa de 20 Hz
+
+def update_open_vertices(last_detected_right, last_detected_lim, detected_right, robot_pos, graph, last_vertex, open_vertices, last_detected_left, detected_left):
+    if sum(last_detected_right) == last_detected_lim and not detected_right:
+        curr_vertex = update_graph(robot_pos, graph, last_vertex)
+        if curr_vertex != last_vertex:
+            print('Midpoint right')
+            open_vertices.append((robot_pos[0], robot_pos[1]))
+            last_vertex = curr_vertex
+            detected_right = True
+    elif sum(last_detected_right) != last_detected_lim:
+        detected_right = False
+
+    if sum(last_detected_left) == last_detected_lim and not detected_left:
+        curr_vertex = update_graph(robot_pos, graph, last_vertex)
+        if curr_vertex != last_vertex:
+            print('Midpoint left')
+            open_vertices.append((robot_pos[0], robot_pos[1]))
+            last_vertex = curr_vertex
+            detected_left = True
+    elif sum(last_detected_left) != last_detected_lim:
+        detected_left = False
+    return last_vertex
+
+def update_last_detected(last_detected_left, last_detected_lim, last_detected_right, sens_r_1, sens_r_2, sens_l_1, sens_l_2):
+    if len(last_detected_left) >= last_detected_lim:
+        last_detected_left.pop(0)
+
+    if len(last_detected_right) >= last_detected_lim:
+        last_detected_right.pop(0)
+
+    if sens_r_1 and sens_r_2:
+        last_detected_right.append(0)
+    else:
+        last_detected_right.append(1)
+
+    if sens_l_1 and sens_l_2:
+        last_detected_left.append(0)
+    else:
+        last_detected_left.append(1)
