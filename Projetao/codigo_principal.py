@@ -13,6 +13,8 @@ client_id = None
 PI = math.pi
 
 L = 0.33
+last_detected_lim = 8
+
 
 class State(Enum):
     FORWARD = 1
@@ -96,18 +98,15 @@ def move_to_target(target):
 
     k_p = 0.8
     k_a = 1.4
-    k_b = -0.8
 
     delta_x = target[0] - robot_pos[0]
     delta_y = target[1] - robot_pos[1]
     ro = ((delta_x ** 2) + (delta_y ** 2)) ** (1/2)
 
     orientation_now = to_180_range(robot_pos[2])
-
     alpha = -orientation_now + math.atan2(delta_y, delta_x)
 
     v = k_p * ro
-    
     # Beta não importa, pois não precisamos saber a orientação
     w = (k_a * alpha)
 
@@ -180,6 +179,7 @@ def print_sensors(sensor, sens_1, sens_2):
         logging.getLogger("Robot").warning(str(sensor) + " para: 1 = {:.2f}, 2 = {:.2f}".format(sens_1, sens_2))
     else:
         logging.getLogger("Robot").warning(str(sensor) + " para: 1 = " + str(sens_1) + ", 2 = " + str(sens_2))
+
 def get_front_mobile_mean(sensor_val, mobile_mean_front_1, mobile_mean_front_2, sensor_detect):
     sens_f_1, sens_f_2 = get_sensor_front(sensor_val)
     if len(mobile_mean_front_1) >= 3:
@@ -264,15 +264,12 @@ def delete_unnecessary_midpoint(robot_pos, graph, last_vertex, midpoints):
 
 def turn_to_target(robot_angle, target_angle):
     k_w = 0.33
-    vl = -1
-    vr = 1
 
     robot_angle = to_180_range(robot_angle)
     target_angle = to_180_range(target_angle)
 
     target = abs(abs(robot_angle) - abs(target_angle))
-
-    set_speed(vl*k_w*abs(target), vr*k_w*abs(target))
+    set_speed(-1*k_w*abs(target), 1*k_w*abs(target))
 
 def main(client_id_connected, vrep_lib):
     global vrep, client_id
@@ -294,13 +291,11 @@ def main(client_id_connected, vrep_lib):
     last_detected_left = []
     detected_left = False
     
-    last_detected_lim = 8
-
     state = State.FORWARD
 
     # Pegando os handles dos sensores ultrassom
     sensor_h = [] # Atenção! Não utilizar o sensor_h dá um delay para pegar os valores dos sensores
-    sensor_val = np.array([]) # Inicializando o array de valores
+    sensor_val = np.array([])
 
     graph = Graph()
     get_first_ultrassom_val_and_update_sensor_h(vrep, client_id, sensor_h, sensor_val)
@@ -312,29 +307,18 @@ def main(client_id_connected, vrep_lib):
         if state == State.FORWARD:
             sens_f_1, sens_f_2 = get_front_mobile_mean(sensor_val, mobile_mean_front_1, mobile_mean_front_2, sensor_detect)
 
-            # sensores laterais contém apenas booleanos (detectou ou não)
-            sens_l_1, sens_l_2 = get_sensor_left(sensor_detect)
-            sens_r_1, sens_r_2 = get_sensor_right(sensor_detect)
             
-            if not is_far_enough(sens_f_1, sens_f_2):
-                state = State.TURN_LEFT
-                if is_between_walls(sens_l_1, sens_l_2, sens_r_1, sens_r_2):
-                    state = State.ENDPOINT_RETURN
-                    logging.getLogger("Robot").warning("Endpoint")
-                else:
-                    logging.getLogger("Robot").warning("Turnpoint")
-                    last_vertex = delete_unnecessary_midpoint(robot_pos, graph, last_vertex, midpoints)
-                last_vertex = update_graph(robot_pos, graph, last_vertex)
-                continue
-
-            set_speed(1, 1)
-            orientation_before = robot_pos[2]
-            target_before = 10
-
-            update_last_detected(last_detected_left, last_detected_lim, last_detected_right, sens_r_1, sens_r_2, sens_l_1, sens_l_2)
-
-            sens_f_1, sens_f_2 = get_sensor_front(sensor_detect)
-            last_vertex = update_midpoints(last_detected_right, last_detected_lim, detected_right, robot_pos, graph, last_vertex, midpoints, last_detected_left, detected_left)
+            state, orientation_before, target_before, sens_l_1, sens_l_2, sens_r_1, sens_r_2, last_vertex = move_forward(sens_f_1,
+                                                                                                                        sens_f_2,
+                                                                                                                        robot_pos, 
+                                                                                                                        graph, 
+                                                                                                                        last_vertex, 
+                                                                                                                        midpoints, 
+                                                                                                                        last_detected_left, 
+                                                                                                                        last_detected_right, 
+                                                                                                                        sensor_detect, 
+                                                                                                                        detected_right, 
+                                                                                                                        detected_left)
 
         elif state == State.TURN_LEFT or state == State.TURN_RIGHT:
             orientation_now = robot_pos[2]
@@ -344,19 +328,19 @@ def main(client_id_connected, vrep_lib):
                 state = State.FORWARD
                 last_detected_right = []
                 last_detected_left = []
+
         elif state == State.ENDPOINT_RETURN:
             if len(midpoints) > 0:
                 target = midpoints[-1]
 
                 # Chegamos no objetivo, precisamos rodar para alinhar com o ângulo que estávamos quando chegamos, dobrar e seguir em frente
                 if euclidean((robot_pos[0], robot_pos[1]), (target[0], target[1])) <= 0.1:
-                    vertex_index, state = arrive_midpoint_treatment(robot_pos,
-                                                                                target,
-                                                                                visited_midpoints,
-                                                                                sensor_detect, 
-                                                                                midpoints, 
-                                                                                state, 
-                                                                                vertex_index)
+                    vertex_index, state = midpoint_arrival_treat(robot_pos,
+                                                                    target,
+                                                                    visited_midpoints,
+                                                                    sensor_detect, 
+                                                                    midpoints, 
+                                                                    vertex_index)
 
                     # Resetando os valores para dobrar
                     if state == State.TURN_LEFT or state == State.TURN_RIGHT:
@@ -368,17 +352,46 @@ def main(client_id_connected, vrep_lib):
 
                 # Ainda não chegamos no objetivo, precisamos andar até lá
                 else:
-                    state, vertex_index = move_to_next_target(graph, last_vertex, target, vertex_index, robot_pos, state)
+                    state, vertex_index = move_to_next_target(graph, last_vertex, target, vertex_index, robot_pos)
             else:
                 logging.getLogger("Robot").warning('There is nowhere to go.')
                 set_speed(0, 0)
+
         elif state == State.DEBUG:
             set_speed(0, 0)
         else:
             logging.getLogger("Robot").warning('State not supported')
             set_speed(0, 0)
 
-def arrive_midpoint_treatment(robot_pos, target, visited_midpoints, sensor_detect, midpoints, state, vertex_index):
+def move_forward(sens_f_1, sens_f_2, robot_pos, graph, last_vertex, midpoints, last_detected_left, last_detected_right, sensor_detect, detected_right, detected_left):
+    state = State.FORWARD
+
+    # sensores laterais contém apenas booleanos (detectou ou não)
+    sens_l_1, sens_l_2 = get_sensor_left(sensor_detect)
+    sens_r_1, sens_r_2 = get_sensor_right(sensor_detect)
+    orientation_before = robot_pos[2]
+    target_before = 10
+
+    if not is_far_enough(sens_f_1, sens_f_2):
+        state = State.TURN_LEFT
+        if is_between_walls(sens_l_1, sens_l_2, sens_r_1, sens_r_2):
+            state = State.ENDPOINT_RETURN
+            logging.getLogger("Robot").warning("Endpoint")
+        else:
+            logging.getLogger("Robot").warning("Turnpoint")
+            last_vertex = delete_unnecessary_midpoint(robot_pos, graph, last_vertex, midpoints)
+        last_vertex = update_graph(robot_pos, graph, last_vertex)
+    else:
+        set_speed(1, 1)
+
+        update_last_detected(last_detected_left, last_detected_lim, last_detected_right, sens_r_1, sens_r_2, sens_l_1, sens_l_2)
+
+        last_vertex = update_midpoints(last_detected_right, last_detected_lim, detected_right, robot_pos, graph, last_vertex, midpoints, last_detected_left, detected_left)
+    return state, orientation_before, target_before, sens_l_1, sens_l_2, sens_r_1, sens_r_2, last_vertex
+
+def midpoint_arrival_treat(robot_pos, target, visited_midpoints, sensor_detect, midpoints, vertex_index):
+    state = State.ENDPOINT_RETURN
+
     # Chegamos no objetivo, precisamos rodar
     if abs(abs(robot_pos[2]) - abs(target[2])) > 0.01:
         turn_to_target(robot_pos[2], target[2])
@@ -395,7 +408,9 @@ def arrive_midpoint_treatment(robot_pos, target, visited_midpoints, sensor_detec
         logging.getLogger("Robot").warning("Arrived target")
     return vertex_index, state
 
-def move_to_next_target(graph, last_vertex, target, vertex_index, robot_pos, state):
+def move_to_next_target(graph, last_vertex, target, vertex_index, robot_pos):
+    state = State.ENDPOINT_RETURN
+
     # Pegamos o caminho mais curto do último vértice (aka de onde começamos a voltar)
     # até a primeira encruzilhada que passamos
     path = graph.get_shortest_path(last_vertex, target)
