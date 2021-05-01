@@ -38,26 +38,7 @@ def is_far_enough(sens_1, sens_2):
     return mean > 0.30
 
 def is_between_walls(sens_l_1, sens_l_2, sens_r_1, sens_r_2):
-    sup = 0.6
-    inf = 0.01
-    
-    l = []
-    if sens_l_1 > inf:
-        l.append(sens_l_1)
-    if sens_l_2 > inf:
-        l.append(sens_l_2)
-    mean_l = sum(l)/len(l)
-    sens_l = mean_l < sup
-
-    r = []
-    if sens_r_1 > inf:
-        r.append(sens_r_1)
-    if sens_r_2 > inf:
-        r.append(sens_r_2)
-    mean_r = sum(r)/len(r)
-    sens_r = mean_r < sup
-
-    return sens_l and sens_r
+    return sens_l_1 and sens_l_2 and sens_r_1 and sens_r_2
 
 def turn(sens_l_1, sens_l_2, sens_r_1, sens_r_2, orientation_before, orientation_now, target_before):
     k_w = 0.3
@@ -153,10 +134,12 @@ def update_graph(robot_pos, graph, last_vertex):
 
 def get_ultrassom_values(vrep, client_id, sensor_h):
     sensor_val = np.array([])
+    sensor_detect = []
     for x in range(1, 16 + 1):
-        _, _, detected_point, _, _ = vrep.simxReadProximitySensor(client_id, sensor_h[x-1], vrep.simx_opmode_buffer)                
+        _, was_detected, detected_point, _, _ = vrep.simxReadProximitySensor(client_id, sensor_h[x-1], vrep.simx_opmode_buffer)                
         sensor_val = np.append(sensor_val, np.linalg.norm(detected_point))
-    return sensor_val
+        sensor_detect.append(was_detected)
+    return sensor_val, sensor_detect
 
 def get_first_ultrassom_val_and_update_sensor_h(vrep, client_id, sensor_h, sensor_val):
     for x in range(1, 16 + 1):
@@ -210,11 +193,12 @@ def main(client_id_connected, vrep_lib):
     get_first_ultrassom_val_and_update_sensor_h(vrep, client_id, sensor_h, sensor_val)
             
     while True:
-        sensor_val = get_ultrassom_values(vrep, client_id, sensor_h)
+        sensor_val, sensor_detect = get_ultrassom_values(vrep, client_id, sensor_h)
         robot_pos = get_object_pos('Pioneer_p3dx')
         
         #sens_b_1, sens_b_2 = get_sensor_back(sensor_val)
         #print_sensors("Atras", sens_b_1, sens_b_2)
+        #print('Sensor detect 9: ' + str(sensor_detect[8]))
 
         if state == State.FORWARD:
             sens_f_1, sens_f_2 = get_sensor_front(sensor_val)
@@ -229,8 +213,8 @@ def main(client_id_connected, vrep_lib):
             orientation_before = robot_pos[2]
             target_before = 10
 
-            sens_l_1, sens_l_2 = get_sensor_left(sensor_val)
-            sens_r_1, sens_r_2 = get_sensor_right(sensor_val)
+            sens_l_1, sens_l_2 = get_sensor_left(sensor_detect)
+            sens_r_1, sens_r_2 = get_sensor_right(sensor_detect)
 
             if not is_between_walls(sens_l_1, sens_l_2, sens_r_1, sens_r_2) and looking_for_midpoints:
                 last_vertex = update_graph(robot_pos, graph, last_vertex)
