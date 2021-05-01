@@ -128,6 +128,7 @@ def update_graph(robot_pos, graph, last_vertex):
     vertex = (robot_pos[0], robot_pos[1])
     if graph.add_vertex(vertex, 1):
         if last_vertex: 
+            graph.add_edge((last_vertex, vertex))
             graph.add_edge((vertex, last_vertex))
         print(str(graph))
         last_vertex = vertex
@@ -183,7 +184,6 @@ def main(client_id_connected, vrep_lib):
 
     orientation_before = None
     last_vertex = None
-    changed_to_turn_state = False
     open_vertices = []
     last_detected = []
     last_detected_lim = 7
@@ -211,7 +211,7 @@ def main(client_id_connected, vrep_lib):
             
             if not is_far_enough(sens_f_1, sens_f_2):
                 state = State.TURN
-                changed_to_turn_state = True
+                last_vertex = update_graph(robot_pos, graph, last_vertex)
                 if is_between_walls(sens_l_1, sens_l_2, sens_r_1, sens_r_2):
                     state = State.ENDPOINT_RETURN
                     print("Endpoint")
@@ -245,25 +245,21 @@ def main(client_id_connected, vrep_lib):
             orientation_now = robot_pos[2]
             done_turn, target_before = turn(sens_l_1, sens_l_2, sens_r_1, sens_r_2, orientation_before, orientation_now, target_before)
 
-            if changed_to_turn_state:
-                last_vertex = update_graph(robot_pos, graph, last_vertex)
-                
-            changed_to_turn_state = False
-
             if done_turn:
                 state = State.FORWARD
                 last_detected = []
         elif state == State.ENDPOINT_RETURN:
             if len(open_vertices) > 0:
-                target = open_vertices[0]
-                print("Target: ", target)
+                target = open_vertices[-1]
+                #print("Target: ", target)
 
                 # Chegamos no objetivo, precisamos dobrar e seguir em frente agora
                 if euclidean((robot_pos[0], robot_pos[1]), target) <= 0.1:
-                    open_vertices.pop(0)
+                    open_vertices.pop(-1)
                     vertex_index = 0
+                    last_vertex = target
                     state = State.TURN
-                    set_target_pos((0,0))
+                    set_target_pos((-3.325,4.875))
                     print("Arrived target")
                 # Ainda não chegamos no objetivo, precisamos andar até lá
                 else:
