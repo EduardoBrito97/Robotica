@@ -31,7 +31,7 @@ class Graph(object):
         """
         min_dist = 999
         for v in self._graph_dict:
-            dist = euclidean(vertex, v)
+            dist = euclidean((vertex[0], vertex[1]), (v[0], v[1]))
             if dist < min_dist:
                 min_dist = dist
 

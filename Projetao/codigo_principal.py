@@ -125,7 +125,7 @@ def set_speed(vl, vr):
     vrep.simxSetJointTargetVelocity(client_id, right_motor_handle, vr, vrep.simx_opmode_streaming)
 
 def update_graph(robot_pos, graph, last_vertex):
-    vertex = (robot_pos[0], robot_pos[1])
+    vertex = (robot_pos[0], robot_pos[1], robot_pos[2])
     if graph.add_vertex(vertex, 1.0):
         if last_vertex: 
             graph.add_edge((vertex, last_vertex))
@@ -256,7 +256,7 @@ def main(client_id_connected, vrep_lib):
                 #logging.getLogger("Robot").warning("Target: ", target)
 
                 # Chegamos no objetivo, precisamos dobrar e seguir em frente agora
-                if euclidean((robot_pos[0], robot_pos[1]), target) <= 0.1:
+                if euclidean((robot_pos[0], robot_pos[1]), (target[0], target[1])) <= 0.1:
                     midpoints.pop(-1)
                     vertex_index = 0
 
@@ -277,7 +277,7 @@ def main(client_id_connected, vrep_lib):
                     path = graph.get_shortest_path(last_vertex, target)
                     target = path[vertex_index] # agora vamos para o próximo objetivo
 
-                    if euclidean((robot_pos[0], robot_pos[1]), target) <= 0.1:
+                    if euclidean((robot_pos[0], robot_pos[1]), (target[0], target[1])) <= 0.1:
                         vertex_index += 1
                         set_speed(0, 0)
                     else:
@@ -298,7 +298,7 @@ def update_midpoints(last_detected_right, last_detected_lim, detected_right, rob
         curr_vertex = update_graph(robot_pos, graph, last_vertex)
         if curr_vertex != last_vertex:
             logging.getLogger("Robot").warning('Midpoint right')
-            midpoints.append((robot_pos[0], robot_pos[1]))
+            midpoints.append((robot_pos[0], robot_pos[1], robot_pos[2]))
             last_vertex = curr_vertex
             detected_right = True
     elif sum(last_detected_right) != last_detected_lim:
@@ -308,7 +308,7 @@ def update_midpoints(last_detected_right, last_detected_lim, detected_right, rob
         curr_vertex = update_graph(robot_pos, graph, last_vertex)
         if curr_vertex != last_vertex:
             logging.getLogger("Robot").warning('Midpoint left')
-            midpoints.append((robot_pos[0], robot_pos[1]))
+            midpoints.append((robot_pos[0], robot_pos[1], robot_pos[2]))
             last_vertex = curr_vertex
             detected_left = True
     elif sum(last_detected_left) != last_detected_lim:
@@ -333,7 +333,7 @@ def update_last_detected(last_detected_left, last_detected_lim, last_detected_ri
         last_detected_left.append(1)
 
 def delete_unnecessary_midpoint(robot_pos, graph, last_vertex, midpoints):
-    robot_pos = (robot_pos[0], robot_pos[1])
+    robot_pos = (robot_pos[0], robot_pos[1], robot_pos[2])
     if last_vertex in midpoints and euclidean(robot_pos, last_vertex) < 1:
         neighbors = graph._graph_dict[last_vertex]
 
