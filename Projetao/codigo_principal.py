@@ -29,7 +29,7 @@ def to_180_range(angle):
     return angle
 
 def is_far_enough(sens_1, sens_2):
-    lim = 0.25
+    lim = 0.4
     if(sens_1 < 0.01):
         return sens_2 > lim or sens_2 < 0.01
     elif(sens_2 < 0.01):
@@ -188,6 +188,9 @@ def main(client_id_connected, vrep_lib):
     midpoints = []
     vertex_index = 0
     
+    mobile_mean_front_1 = []
+    mobile_mean_front_2 = []
+
     last_detected_right = []
     detected_right = False
     
@@ -215,6 +218,24 @@ def main(client_id_connected, vrep_lib):
 
         if state == State.FORWARD:
             sens_f_1, sens_f_2 = get_sensor_front(sensor_val)
+            if len(mobile_mean_front_1) >= 3:
+                mobile_mean_front_1.pop(0)
+            if len(mobile_mean_front_2) >= 3:
+                mobile_mean_front_2.pop(0)
+
+            detect_f_1, detect_f_2 = get_sensor_front(sensor_detect)
+            if detect_f_1:            
+                mobile_mean_front_1.append(sens_f_1)
+            else:
+                mobile_mean_front_1.append(0.8)
+            
+            if detect_f_2:            
+                mobile_mean_front_2.append(sens_f_2)
+            else:
+                mobile_mean_front_2.append(0.8)
+            
+            sens_f_1 = sum(mobile_mean_front_1)/len(mobile_mean_front_1)
+            sens_f_2 = sum(mobile_mean_front_2)/len(mobile_mean_front_2)
             #print_sensors("Frente", sens_f_1, sens_f_2)
 
             # sensores laterais contém apenas booleanos (detectou ou não)
@@ -339,7 +360,7 @@ def update_last_detected(last_detected_left, last_detected_lim, last_detected_ri
 
 def delete_unnecessary_midpoint(robot_pos, graph, last_vertex, midpoints):
     robot_pos = (robot_pos[0], robot_pos[1], robot_pos[2])
-    if last_vertex in midpoints and euclidean(robot_pos, last_vertex) < 1:
+    if last_vertex in midpoints and euclidean(robot_pos, last_vertex) < 0.8:
         neighbors = graph._graph_dict[last_vertex]
 
         neighbor = None
