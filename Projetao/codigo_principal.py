@@ -259,9 +259,14 @@ def main(client_id_connected, vrep_lib):
                 if euclidean((robot_pos[0], robot_pos[1]), target) <= 0.1:
                     open_vertices.pop(-1)
                     vertex_index = 0
+
+                    # Resetando os valores
                     last_vertex = target
                     orientation_before = robot_pos[2]
                     target_before = 10
+                    sens_l_1, sens_l_2 = get_sensor_left(sensor_detect)
+                    sens_r_1, sens_r_2 = get_sensor_right(sensor_detect)
+
                     state = State.TURN
                     set_target_pos((-3.325,4.875))
                     logging.getLogger("Robot").warning("Arrived target")
