@@ -29,13 +29,14 @@ def to_180_range(angle):
     return angle
 
 def is_far_enough(sens_1, sens_2):
+    lim = 0.33
     if(sens_1 < 0.01):
-        return sens_2 > 0.30 or sens_2 < 0.01
+        return sens_2 > lim or sens_2 < 0.01
     elif(sens_2 < 0.01):
-        return sens_1 > 0.30 or sens_1 < 0.01 
+        return sens_1 > lim or sens_1 < 0.01 
     
     mean = (sens_1 + sens_2)/2
-    return mean > 0.30
+    return mean > lim
 
 def is_between_walls(sens_l_1, sens_l_2, sens_r_1, sens_r_2):
     return sens_l_1 and sens_l_2 and sens_r_1 and sens_r_2
@@ -229,10 +230,12 @@ def main(client_id_connected, vrep_lib):
             else:
                 last_detected.append(1)
 
-            print(last_detected)
             if sum(last_detected) == last_detected_lim:
-                last_vertex = update_graph(robot_pos, graph, last_vertex)
-                open_vertices.append(last_vertex)
+                curr_vertex = update_graph(robot_pos, graph, last_vertex)
+                if curr_vertex != last_vertex:
+                    open_vertices.append(last_vertex)
+                    print('Open vertex')
+                    last_vertex = curr_vertex
             
             #print_sensors("Esquerda", sens_l_1, sens_l_2)
             #print_sensors("Direita", sens_r_1, sens_r_2)
@@ -253,6 +256,7 @@ def main(client_id_connected, vrep_lib):
         elif state == State.ENDPOINT_RETURN:
             if len(open_vertices) > 0:
                 target = open_vertices[0]
+                print(target)
 
                 # Chegamos no objetivo, precisamos dobrar e seguir em frente agora
                 if euclidean((robot_pos[0], robot_pos[1]), target) <= 0.1:
