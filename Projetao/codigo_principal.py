@@ -29,7 +29,7 @@ def to_180_range(angle):
     return angle
 
 def is_far_enough(sens_1, sens_2):
-    lim = 0.33
+    lim = 0.3
     if(sens_1 < 0.01):
         return sens_2 > lim or sens_2 < 0.01
     elif(sens_2 < 0.01):
@@ -42,7 +42,7 @@ def is_between_walls(sens_l_1, sens_l_2, sens_r_1, sens_r_2):
     return sens_l_1 and sens_l_2 and sens_r_1 and sens_r_2
 
 def turn(sens_l_1, sens_l_2, sens_r_1, sens_r_2, orientation_before, orientation_now, target_before):
-    k_w = 0.3
+    k_w = 0.33
     vl = 0
     vr = 0
 
@@ -244,7 +244,7 @@ def main(client_id_connected, vrep_lib):
         elif state == State.TURN:
             orientation_now = robot_pos[2]
             done_turn, target_before = turn(sens_l_1, sens_l_2, sens_r_1, sens_r_2, orientation_before, orientation_now, target_before)
-
+            
             if done_turn:
                 state = State.FORWARD
                 last_detected = []
@@ -258,6 +258,8 @@ def main(client_id_connected, vrep_lib):
                     open_vertices.pop(-1)
                     vertex_index = 0
                     last_vertex = target
+                    orientation_before = robot_pos[2]
+                    target_before = 10
                     state = State.TURN
                     set_target_pos((-3.325,4.875))
                     print("Arrived target")

@@ -118,7 +118,7 @@ class Graph(object):
         res = "vertices: "
         for k in self._graph_dict:
             res += str(k) + " "
-        res += "\nedges: "
-        for edge in self.__generate_edges():
-            res += str(edge) + " "
+        # res += "\nedges: "
+        # for edge in self.__generate_edges():
+        #     res += str(edge) + " "
         return res
