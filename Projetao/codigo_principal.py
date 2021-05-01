@@ -29,7 +29,7 @@ def to_180_range(angle):
     return angle
 
 def is_far_enough(sens_1, sens_2):
-    lim = 0.3
+    lim = 0.25
     if(sens_1 < 0.01):
         return sens_2 > lim or sens_2 < 0.01
     elif(sens_2 < 0.01):
@@ -49,10 +49,10 @@ def turn(sens_l_1, sens_l_2, sens_r_1, sens_r_2, orientation_before, orientation
     orientation_now = to_180_range(orientation_now)
     orientation_before = to_180_range(orientation_before)
 
-    if is_far_enough(sens_l_1, sens_l_2):
+    if not sens_l_1 and not sens_l_2:
         vl = -1
         vr = 1
-    elif is_far_enough(sens_r_1, sens_r_2):
+    elif not sens_r_1 and not sens_r_2:
         vl = 1
         vr = -1
     target = abs(abs(orientation_before) - abs(orientation_now)) - (PI/2)
@@ -126,7 +126,7 @@ def set_speed(vl, vr):
 
 def update_graph(robot_pos, graph, last_vertex):
     vertex = (robot_pos[0], robot_pos[1])
-    if graph.add_vertex(vertex, 1):
+    if graph.add_vertex(vertex, 0.9):
         if last_vertex: 
             graph.add_edge((last_vertex, vertex))
             graph.add_edge((vertex, last_vertex))
@@ -186,7 +186,7 @@ def main(client_id_connected, vrep_lib):
     last_vertex = None
     open_vertices = []
     last_detected = []
-    last_detected_lim = 7
+    last_detected_lim = 10
     vertex_index = 0
     state = State.FORWARD
 
@@ -227,7 +227,7 @@ def main(client_id_connected, vrep_lib):
 
             if len(last_detected) >= last_detected_lim:
                 last_detected.pop(0)
-
+            
             if is_between_walls(sens_l_1, sens_l_2, sens_r_1, sens_r_2):
                 last_detected.append(0)
             else:
@@ -244,7 +244,7 @@ def main(client_id_connected, vrep_lib):
         elif state == State.TURN:
             orientation_now = robot_pos[2]
             done_turn, target_before = turn(sens_l_1, sens_l_2, sens_r_1, sens_r_2, orientation_before, orientation_now, target_before)
-            
+
             if done_turn:
                 state = State.FORWARD
                 last_detected = []
