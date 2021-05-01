@@ -125,7 +125,7 @@ def set_speed(vl, vr):
 
 def update_graph(robot_pos, graph, last_vertex):
     vertex = (robot_pos[0], robot_pos[1])
-    if graph.add_vertex(vertex, 0.3):
+    if graph.add_vertex(vertex, 1):
         if last_vertex: 
             graph.add_edge((vertex, last_vertex))
         print(str(graph))
@@ -170,7 +170,10 @@ def get_sensor_right(sensor_val):
     return sens_r_1, sens_r_2
 
 def print_sensors(sensor, sens_1, sens_2):
-    print(str(sensor) + " para: 1 = {:.2f}, 2 = {:.2f}".format(sens_1, sens_2))
+    if type(sens_1) == float:
+        print(str(sensor) + " para: 1 = {:.2f}, 2 = {:.2f}".format(sens_1, sens_2))
+    else:
+        print(str(sensor) + " para: 1 = " + str(sens_1) + ", 2 = " + str(sens_2))
 
 def main(client_id_connected, vrep_lib):
     global vrep, client_id
@@ -179,9 +182,10 @@ def main(client_id_connected, vrep_lib):
 
     orientation_before = None
     last_vertex = None
-    looking_for_midpoints = True
     changed_to_turn_state = False
     open_vertices = []
+    last_detected = []
+    last_detected_lim = 7
     vertex_index = 0
     state = State.FORWARD
 
@@ -213,22 +217,27 @@ def main(client_id_connected, vrep_lib):
             orientation_before = robot_pos[2]
             target_before = 10
 
+            # sensores laterais contém apenas booleanos (detectou ou não)
             sens_l_1, sens_l_2 = get_sensor_left(sensor_detect)
             sens_r_1, sens_r_2 = get_sensor_right(sensor_detect)
 
-            if not is_between_walls(sens_l_1, sens_l_2, sens_r_1, sens_r_2) and looking_for_midpoints:
+            if len(last_detected) >= last_detected_lim:
+                last_detected.pop(0)
+
+            if is_between_walls(sens_l_1, sens_l_2, sens_r_1, sens_r_2):
+                last_detected.append(0)
+            else:
+                last_detected.append(1)
+
+            print(last_detected)
+            if sum(last_detected) == last_detected_lim:
                 last_vertex = update_graph(robot_pos, graph, last_vertex)
                 open_vertices.append(last_vertex)
-                looking_for_midpoints = False
-            # Precisamos pegar um midpoint por abertura. Quando já registramos esta abertura, só olhamos novamente caso fiquemos entre paredes novamente
-            elif is_between_walls(sens_l_1, sens_l_2, sens_r_1, sens_r_2):
-                looking_for_midpoints = True
-
+            
             #print_sensors("Esquerda", sens_l_1, sens_l_2)
             #print_sensors("Direita", sens_r_1, sens_r_2)
         elif state == State.TURN:
             orientation_now = robot_pos[2]
-            looking_for_midpoints = True # Assim que dobrarmos, um dos lados vai ficar exposto, por isso precisamos procurar só a partir do próximo muro
             done_turn, target_before = turn(sens_l_1, sens_l_2, sens_r_1, sens_r_2, orientation_before, orientation_now, target_before)
 
             if changed_to_turn_state:
@@ -240,6 +249,7 @@ def main(client_id_connected, vrep_lib):
 
             if done_turn:
                 state = State.FORWARD
+                last_detected = []
         elif state == State.ENDPOINT_RETURN:
             if len(open_vertices) > 0:
                 target = open_vertices[0]
