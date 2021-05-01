@@ -13,8 +13,7 @@ client_id = None
 PI = math.pi
 
 L = 0.33
-last_detected_lim = 8
-
+last_detected_lim = 7
 
 class State(Enum):
     FORWARD = 1
@@ -137,7 +136,7 @@ def update_graph(robot_pos, graph, last_vertex):
         last_vertex = vertex
     return last_vertex
 
-def get_ultrassom_values(vrep, client_id, sensor_h):
+def get_ultrassom_values(sensor_h):
     sensor_val = np.array([])
     sensor_detect = []
     for x in range(1, 16 + 1):
@@ -146,13 +145,13 @@ def get_ultrassom_values(vrep, client_id, sensor_h):
         sensor_detect.append(was_detected)
     return sensor_val, sensor_detect
 
-def get_first_ultrassom_val_and_update_sensor_h(vrep, client_id, sensor_h, sensor_val):
+def get_sensors_handlers():
+    sensor_h = []
     for x in range(1, 16 + 1):
         _, sensor_handle = vrep.simxGetObjectHandle(client_id, 'Pioneer_p3dx_ultrasonicSensor' + str(x), vrep.simx_opmode_oneshot_wait)
-        sensor_h.append(sensor_handle) 
-
-        _, _, detected_point, _, _ = vrep.simxReadProximitySensor(client_id, sensor_handle, vrep.simx_opmode_streaming)                
-        sensor_val = np.append(sensor_val, np.linalg.norm(detected_point))
+        sensor_h.append(sensor_handle)
+        vrep.simxReadProximitySensor(client_id, sensor_handle, vrep.simx_opmode_streaming)
+    return sensor_h
 
 def get_sensor_front(sensor_val):
     sens_f_1 = sensor_val[3]
@@ -291,17 +290,15 @@ def main(client_id_connected, vrep_lib):
     last_detected_left = []
     detected_left = False
     
+    graph = Graph()
     state = State.FORWARD
 
-    # Pegando os handles dos sensores ultrassom
-    sensor_h = [] # Atenção! Não utilizar o sensor_h dá um delay para pegar os valores dos sensores
-    sensor_val = np.array([])
-
-    graph = Graph()
-    get_first_ultrassom_val_and_update_sensor_h(vrep, client_id, sensor_h, sensor_val)
+    # Atenção! Não utilizar o sensor_h dá um delay para pegar os valores dos sensores
+    sensor_h = get_sensors_handlers()
+    sensor_val, sensor_detect = get_ultrassom_values(sensor_h)
             
     while True:
-        sensor_val, sensor_detect = get_ultrassom_values(vrep, client_id, sensor_h)
+        sensor_val, sensor_detect = get_ultrassom_values(sensor_h)
         robot_pos = get_object_pos('Pioneer_p3dx')
         
         if state == State.FORWARD:
