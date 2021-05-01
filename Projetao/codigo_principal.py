@@ -212,6 +212,9 @@ def main(client_id_connected, vrep_lib):
             if not is_far_enough(sens_f_1, sens_f_2):
                 state = State.TURN
                 changed_to_turn_state = True
+                if is_between_walls(sens_l_1, sens_l_2, sens_r_1, sens_r_2):
+                    state = State.ENDPOINT_RETURN
+                    print("Endpoint")
                 continue
 
             set_speed(1, 1)
@@ -244,9 +247,7 @@ def main(client_id_connected, vrep_lib):
 
             if changed_to_turn_state:
                 last_vertex = update_graph(robot_pos, graph, last_vertex)
-                if is_between_walls(sens_l_1, sens_l_2, sens_r_1, sens_r_2):
-                    state = State.ENDPOINT_RETURN
-                    continue
+                
             changed_to_turn_state = False
 
             if done_turn:
@@ -255,6 +256,7 @@ def main(client_id_connected, vrep_lib):
         elif state == State.ENDPOINT_RETURN:
             if len(open_vertices) > 0:
                 target = open_vertices[0]
+                print("Target: ", target)
 
                 # Chegamos no objetivo, precisamos dobrar e seguir em frente agora
                 if euclidean((robot_pos[0], robot_pos[1]), target) <= 0.1:
@@ -262,6 +264,7 @@ def main(client_id_connected, vrep_lib):
                     vertex_index = 0
                     state = State.TURN
                     set_target_pos((0,0))
+                    print("Arrived target")
                 # Ainda não chegamos no objetivo, precisamos andar até lá
                 else:
                     # Pegamos o caminho mais curto do último vértice (aka de onde começamos a voltar)
