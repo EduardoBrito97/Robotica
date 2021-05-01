@@ -93,11 +93,10 @@ def set_target_pos(target_pos):
     vrep.simxSetObjectPosition(client_id, target_handle, -1, target_pos, vrep.simx_opmode_oneshot_wait)
 
 def move_to_target(target):
-    robot_pos = get_object_pos('Pioneer_p3dx')
-
     k_p = 0.8
     k_a = 1.4
 
+    robot_pos = get_object_pos('Pioneer_p3dx')
     delta_x = target[0] - robot_pos[0]
     delta_y = target[1] - robot_pos[1]
     ro = ((delta_x ** 2) + (delta_y ** 2)) ** (1/2)
@@ -380,9 +379,7 @@ def move_forward(sens_f_1, sens_f_2, robot_pos, graph, last_vertex, midpoints, l
         last_vertex = update_graph(robot_pos, graph, last_vertex)
     else:
         set_speed(1, 1)
-
         update_last_detected(last_detected_left, last_detected_lim, last_detected_right, sens_r_1, sens_r_2, sens_l_1, sens_l_2)
-
         last_vertex = update_midpoints(last_detected_right, last_detected_lim, detected_right, robot_pos, graph, last_vertex, midpoints, last_detected_left, detected_left)
     return state, orientation_before, target_before, sens_l_1, sens_l_2, sens_r_1, sens_r_2, last_vertex
 
