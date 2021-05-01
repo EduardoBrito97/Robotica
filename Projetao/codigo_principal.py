@@ -93,6 +93,7 @@ def move_to_target(target):
 
     k_p = 0.8
     k_a = 1.4
+    k_b = -0.8
 
     delta_x = target[0] - robot_pos[0]
     delta_y = target[1] - robot_pos[1]
@@ -257,6 +258,10 @@ def main(client_id_connected, vrep_lib):
 
                 # Chegamos no objetivo, precisamos dobrar e seguir em frente agora
                 if euclidean((robot_pos[0], robot_pos[1]), (target[0], target[1])) <= 0.1:
+                    # Chegamos no objetivo, precisamos rodar
+                    if abs(abs(robot_pos[2]) - abs(target[2])) > 0.01:
+                        turn_to_target(robot_pos[2], target[2])
+                        continue
                     midpoints.pop(-1)
                     vertex_index = 0
 
@@ -347,3 +352,15 @@ def delete_unnecessary_midpoint(robot_pos, graph, last_vertex, midpoints):
         logging.getLogger("Robot").warning('Midpoint removed: ' + str(last_vertex))
         last_vertex = neighbor
     return last_vertex
+
+def turn_to_target(robot_angle, target_angle):
+    k_w = 0.33
+    vl = -1
+    vr = 1
+
+    robot_angle = to_180_range(robot_angle)
+    target_angle = to_180_range(target_angle)
+
+    target = abs(abs(robot_angle) - abs(target_angle))
+
+    set_speed(vl*k_w*abs(target), vr*k_w*abs(target))
