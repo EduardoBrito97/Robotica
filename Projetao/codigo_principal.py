@@ -233,8 +233,7 @@ def main(client_id_connected, vrep_lib):
             if sum(last_detected) == last_detected_lim:
                 curr_vertex = update_graph(robot_pos, graph, last_vertex)
                 if curr_vertex != last_vertex:
-                    open_vertices.append(last_vertex)
-                    print('Open vertex')
+                    open_vertices.append((robot_pos[0], robot_pos[1]))
                     last_vertex = curr_vertex
             
             #print_sensors("Esquerda", sens_l_1, sens_l_2)
@@ -256,7 +255,6 @@ def main(client_id_connected, vrep_lib):
         elif state == State.ENDPOINT_RETURN:
             if len(open_vertices) > 0:
                 target = open_vertices[0]
-                print(target)
 
                 # Chegamos no objetivo, precisamos dobrar e seguir em frente agora
                 if euclidean((robot_pos[0], robot_pos[1]), target) <= 0.1:
