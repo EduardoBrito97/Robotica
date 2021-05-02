@@ -21,6 +21,7 @@ class State(Enum):
     TURN_RIGHT = 3
     ENDPOINT_RETURN = 4
     DEBUG = 5
+    FINISH = 6
 
 def to_180_range(angle):
     angle = math.fmod(angle,2*PI)
@@ -84,6 +85,17 @@ def get_object_pos(object_name):
     theta = orientation[2]
     object_pos[2] = theta
     return object_pos
+
+def get_ir_sensor_handle():
+    res, ir_sensor_handle = vrep.simxGetObjectHandle(client_id, 'Vision_sensor', vrep.simx_opmode_oneshot_wait)
+    err, resolution, image = vrep.simxGetVisionSensorImage(client_id, ir_sensor_handle, 0, vrep.simx_opmode_streaming)
+
+    return ir_sensor_handle
+
+def get_ir_sensor_image(ir_sensor_handle):
+    err, resolution, image = vrep.simxGetVisionSensorImage(client_id, ir_sensor_handle, 0, vrep.simx_opmode_buffer)
+    image = np.array(image,dtype=np.uint8)
+    return image
 
 def set_target_pos(target_pos):
     _, target_handle = vrep.simxGetObjectHandle(client_id, "Target#", vrep.simx_opmode_oneshot_wait)
@@ -296,9 +308,16 @@ def main(client_id_connected, vrep_lib):
     sensor_h = get_sensors_handlers()
     sensor_val, sensor_detect = get_ultrassom_values(sensor_h)
             
+    ir_sensor_h = get_ir_sensor_handle()
+
     while True:
         sensor_val, sensor_detect = get_ultrassom_values(sensor_h)
+        sensor_ir_val = get_ir_sensor_image(ir_sensor_h)
+ 
         robot_pos = get_object_pos('Pioneer_p3dx')
+
+        if np.all(sensor_ir_val < 25) and len(sensor_ir_val) > 0:
+            state = State.FINISH
         
         if state == State.FORWARD:
             sens_f_1, sens_f_2 = get_front_mobile_mean(sensor_val, mobile_mean_front_1, mobile_mean_front_2, sensor_detect)
@@ -353,7 +372,9 @@ def main(client_id_connected, vrep_lib):
             else:
                 logging.getLogger("Robot").warning('There is nowhere to go.')
                 set_speed(0, 0)
-
+        elif state == State.FINISH:
+                logging.getLogger("Robot").warning('I found a way out of the maze')
+                set_speed(0, 0)
         elif state == State.DEBUG:
             set_speed(0, 0)
         else:
