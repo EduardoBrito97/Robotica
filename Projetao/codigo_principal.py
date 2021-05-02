@@ -125,9 +125,9 @@ def set_speed(vl, vr):
     vrep.simxSetJointTargetVelocity(client_id, left_motor_handle, vl, vrep.simx_opmode_streaming)
     vrep.simxSetJointTargetVelocity(client_id, right_motor_handle, vr, vrep.simx_opmode_streaming)
 
-def update_graph(robot_pos, graph, last_vertex):
+def update_graph(robot_pos, graph, last_vertex, min_dist = 1.0):
     vertex = (robot_pos[0], robot_pos[1], robot_pos[2])
-    if graph.add_vertex(vertex, 1.0):
+    if graph.add_vertex(vertex, min_dist):
         if last_vertex: 
             graph.add_edge((vertex, last_vertex))
             graph.add_edge((last_vertex, vertex))
@@ -314,7 +314,8 @@ def main(client_id_connected, vrep_lib):
                                                                                                                         last_detected_right, 
                                                                                                                         sensor_detect, 
                                                                                                                         detected_right, 
-                                                                                                                        detected_left)
+                                                                                                                        detected_left,
+                                                                                                                        visited_midpoints)
 
         elif state == State.TURN_LEFT or state == State.TURN_RIGHT:
             orientation_now = robot_pos[2]
@@ -359,7 +360,7 @@ def main(client_id_connected, vrep_lib):
             logging.getLogger("Robot").warning('State not supported')
             set_speed(0, 0)
 
-def move_forward(sens_f_1, sens_f_2, robot_pos, graph, last_vertex, midpoints, last_detected_left, last_detected_right, sensor_detect, detected_right, detected_left):
+def move_forward(sens_f_1, sens_f_2, robot_pos, graph, last_vertex, midpoints, last_detected_left, last_detected_right, sensor_detect, detected_right, detected_left, visited_midpoints):
     state = State.FORWARD
 
     # sensores laterais contém apenas booleanos (detectou ou não)
@@ -376,7 +377,12 @@ def move_forward(sens_f_1, sens_f_2, robot_pos, graph, last_vertex, midpoints, l
         else:
             logging.getLogger("Robot").warning("Turnpoint")
             last_vertex = delete_unnecessary_midpoint(robot_pos, graph, last_vertex, midpoints)
-        last_vertex = update_graph(robot_pos, graph, last_vertex)
+        last_vertex = update_graph(robot_pos, graph, last_vertex, min_dist=0.2)
+
+        if not sens_l_1 and not sens_l_2 and not sens_r_1 and not sens_r_2:
+            logging.getLogger("Robot").warning("Open Turnpoint")
+            midpoints.append(last_vertex)
+            visited_midpoints.append(last_vertex)
     else:
         set_speed(1, 1)
         update_last_detected(last_detected_left, last_detected_lim, last_detected_right, sens_r_1, sens_r_2, sens_l_1, sens_l_2)
