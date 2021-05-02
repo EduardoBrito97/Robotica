@@ -104,6 +104,23 @@ def set_target_pos(target_pos):
 
     vrep.simxSetObjectPosition(client_id, target_handle, -1, target_pos, vrep.simx_opmode_oneshot_wait)
 
+def positive_angle(angle):
+    angle = math.degrees(angle)
+    angle %= 360
+
+    return math.radians(angle)
+
+
+def smallestAngleDiff(angle1,angle2):
+    diference = positive_angle(angle1) - positive_angle(angle2)
+
+    if(diference > PI):
+        diference = diference - 2*PI
+    elif diference < -PI:
+        diference = diference + 2*PI
+    
+    return diference
+
 def move_to_target(target):
     k_p = 0.8
     k_a = 1.4
@@ -113,8 +130,8 @@ def move_to_target(target):
     delta_y = target[1] - robot_pos[1]
     ro = ((delta_x ** 2) + (delta_y ** 2)) ** (1/2)
 
-    orientation_now = to_180_range(robot_pos[2])
-    alpha = -orientation_now + math.atan2(delta_y, delta_x)
+    alpha = smallestAngleDiff(math.atan2(delta_y, delta_x),robot_pos[2])
+    alpha = to_180_range(alpha)
 
     v = k_p * ro
     # Beta não importa, pois não precisamos saber a orientação
