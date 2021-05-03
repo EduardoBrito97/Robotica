@@ -1,4 +1,6 @@
 from scipy.spatial.distance import euclidean
+import networkx as nx
+import matplotlib.pyplot as plt
 
 class Graph(object):
 
@@ -10,6 +12,7 @@ class Graph(object):
         if graph_dict is None:
             graph_dict = {}
         self._graph_dict = graph_dict
+        self.index = 0
 
     def edges(self, vertice):
         """ returns a list of all the edges of a vertice"""
@@ -22,6 +25,27 @@ class Graph(object):
     def all_edges(self):
         """ returns the edges of the graph """
         return self.__generate_edges()
+
+    def draw_graph(self, fig_name = "Graph.png"):
+        g = nx.Graph()
+
+        gr = {}
+        index = 0
+        for vertex in self._graph_dict.keys():
+            index += 1
+            position = (vertex[0], vertex[1])
+            g.add_node(index, pos=position)
+            gr[vertex] = index
+
+        for vertex in self._graph_dict.keys():
+            for neighbor in self._graph_dict[vertex]:
+                g.add_edge(gr[vertex], gr[neighbor])
+        
+        pos = nx.get_node_attributes(g, 'pos')
+        nx.draw(g, pos, with_labels=True)
+        plt.savefig(str(self.index) + "-" + fig_name)
+        plt.clf()
+        self.index += 1
 
     def add_vertex(self, vertex, min_dist_lim = 0.2):
         """ If the vertex "vertex" is not in self._graph_dict and its closest vertex is at least min_dist_lim far, 
