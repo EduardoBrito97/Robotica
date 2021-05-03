@@ -111,8 +111,7 @@ def positive_angle(angle):
 
     return angle
 
-
-def smallestAngleDiff(angle1,angle2):
+def smallest_angle_diff(angle1,angle2):
     diference = positive_angle(angle1) - positive_angle(angle2)
 
     if(diference > PI):
@@ -131,7 +130,7 @@ def move_to_target(target):
     delta_y = target[1] - robot_pos[1]
     ro = ((delta_x ** 2) + (delta_y ** 2)) ** (1/2)
 
-    alpha = smallestAngleDiff(math.atan2(delta_y, delta_x),robot_pos[2])
+    alpha = smallest_angle_diff(math.atan2(delta_y, delta_x),robot_pos[2])
     alpha = to_180_range(alpha)
 
     v = k_p * ro
@@ -161,6 +160,7 @@ def update_graph(robot_pos, graph, last_vertex, min_dist = 1.0):
         if last_vertex: 
             graph.add_edge((vertex, last_vertex))
         last_vertex = vertex
+        graph.draw_graph()
     return last_vertex
 
 def get_ultrassom_values(sensor_h):
@@ -307,40 +307,45 @@ def repeated_way(robot_pos,midpoints,prior_left):
     new_x = robot_pos[0]
     new_y = robot_pos[1]
     lim = 1.0
-    if(prior_left):
+    
+    down_oriented = orientation_now > 1.4 and orientation_now < 1.7
+    right_oriented = orientation_now > 2.9 and orientation_now < 3.7
+    left_oriented = orientation_now > 4.2 and orientation_now < 5.3
+    up_oriented = orientation_now > 5.9 and orientation_now < 6.30
+
+    if prior_left:
         # está para baixo
-        if(orientation_now > 1,4 and orientation_now < 1,7):
+        if down_oriented:
             new_x = robot_pos[0] - lim
         # está para o lado direito
-        elif(orientation_now > 2,9 and orientation_now < 3,7):
+        elif right_oriented:
             new_y = robot_pos[1] - lim
         # está para o lado esquerdo
-        elif(orientation_now > 4,2 and orientation_now < 5,3):
+        elif left_oriented:
             new_y = robot_pos[1] + lim
         # está para cima
-        elif(orientation_now > 5,9 and orientation_now < 6,30):
+        elif up_oriented:
             new_x = robot_pos[0] + lim
     else:
         # está para baixo
-        if(orientation_now > 1,4 and orientation_now < 1,7):
+        if down_oriented:
             new_x = robot_pos[0] + lim
         # está para o lado direito
-        elif(orientation_now > 2,9 and orientation_now < 3,7):
+        elif right_oriented:
             new_y = robot_pos[1] + lim
         # está para o lado esquerdo
-        elif(orientation_now > 4,2 and orientation_now < 5,3):
+        elif left_oriented:
             new_y = robot_pos[1] - lim
         # está para cima
-        elif(orientation_now > 5,9 and orientation_now < 6,30):
+        elif up_oriented:
             new_x = robot_pos[0] - lim
     
-    logging.getLogger("Robot").warning('Check Position '+str(new_x) + ',' + str( new_y))
+    logging.getLogger("Robot").warning('Check Position ' + str(new_x) + ',' + str(new_y))
 
     for mp in midpoints:
         if (euclidean((new_x, new_y), (mp[0], mp[1])) <= 0.3):
             return True
     return False
-
 
 def main(client_id_connected, vrep_lib):
     global vrep, client_id
@@ -435,7 +440,9 @@ def main(client_id_connected, vrep_lib):
                 set_speed(0, 0)
         elif state == State.FINISH:
                 logging.getLogger("Robot").warning('I found a way out of the maze')
+                update_graph(robot_pos, graph, last_vertex, 0.2)
                 set_speed(0, 0)
+                time.sleep(60)
         elif state == State.DEBUG:
             set_speed(0, 0)
         else:
@@ -452,7 +459,7 @@ def move_forward(sens_f_1, sens_f_2, robot_pos, graph, last_vertex, midpoints, l
     target_before = 10
 
     if not is_far_enough(sens_f_1, sens_f_2):
-        state = State.TURN_RIGHT
+        state = State.TURN_LEFT
         if is_between_walls(sens_l_1, sens_l_2, sens_r_1, sens_r_2):
             state = State.ENDPOINT_RETURN
             logging.getLogger("Robot").warning("Endpoint")
@@ -460,7 +467,6 @@ def move_forward(sens_f_1, sens_f_2, robot_pos, graph, last_vertex, midpoints, l
             logging.getLogger("Robot").warning("Turnpoint")
             last_vertex = delete_unnecessary_midpoint(robot_pos, graph, last_vertex, midpoints)
         last_vertex = update_graph(robot_pos, graph, last_vertex, min_dist=0.2)
-    
         
         if not sens_l_1 and not sens_l_2 and not sens_r_1 and not sens_r_2 and not last_vertex in midpoints:
             logging.getLogger("Robot").warning("Open Turnpoint")
@@ -479,7 +485,7 @@ def midpoint_arrival_treat(robot_pos, target, visited_midpoints, sensor_detect, 
     if abs(positive_angle(robot_pos[2]) - positive_angle(target[2])) > 0.01:
         turn_to_target(robot_pos[2], target[2])
     elif target in visited_midpoints :
-        state = State.TURN_LEFT
+        state = State.TURN_RIGHT
         logging.getLogger("Robot").warning("Reaching midpoint second time. Turning right.")
         midpoints.pop(-1)
         vertex_index = 0
@@ -489,11 +495,11 @@ def midpoint_arrival_treat(robot_pos, target, visited_midpoints, sensor_detect, 
         vi = vertex_index
         vertex_index = 0
 
-        state = State.TURN_RIGHT
-        set_target_pos((-3.325,4.875))
+        state = State.TURN_LEFT
+        set_target_pos((-3.325, 4.875))
         logging.getLogger("Robot").warning("Arrived target")
 
-        if repeated_way(robot_pos,midpoints,prior_left= (state == State.TURN_LEFT)):
+        if repeated_way(robot_pos, midpoints, prior_left = (state == State.TURN_LEFT)):
             state = State.ENDPOINT_RETURN
             logging.getLogger("Robot").warning("I can't do the same way")
             vertex_index = vi
