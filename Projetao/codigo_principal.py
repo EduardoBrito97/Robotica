@@ -105,10 +105,11 @@ def set_target_pos(target_pos):
     vrep.simxSetObjectPosition(client_id, target_handle, -1, target_pos, vrep.simx_opmode_oneshot_wait)
 
 def positive_angle(angle):
-    angle = math.degrees(angle)
-    angle %= 360
+    angle = math.fmod(angle,2*PI)
+    while(angle<0):
+        angle = angle + 2*PI
 
-    return math.radians(angle)
+    return angle
 
 
 def smallestAngleDiff(angle1,angle2):
@@ -292,8 +293,8 @@ def delete_unnecessary_midpoint(robot_pos, graph, last_vertex, midpoints):
 def turn_to_target(robot_angle, target_angle):
     k_w = 0.33
 
-    robot_angle = to_180_range(robot_angle)
-    target_angle = to_180_range(target_angle)
+    robot_angle = positive_angle(robot_angle)
+    target_angle = positive_angle(target_angle)
 
     target = abs(abs(robot_angle) - abs(target_angle))
     set_speed(-1*k_w*abs(target), 1*k_w*abs(target))
@@ -471,7 +472,7 @@ def midpoint_arrival_treat(robot_pos, target, visited_midpoints, sensor_detect, 
     state = State.ENDPOINT_RETURN
 
     # Chegamos no objetivo, precisamos rodar
-    if abs(abs(robot_pos[2]) - abs(target[2])) > 0.01:
+    if abs(positive_angle(robot_pos[2]) - positive_angle(target[2])) > 0.01:
         turn_to_target(robot_pos[2], target[2])
     elif target in visited_midpoints:
         state = State.TURN_LEFT
