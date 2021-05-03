@@ -160,8 +160,6 @@ def update_graph(robot_pos, graph, last_vertex, min_dist = 1.0):
     if graph.add_vertex(vertex, min_dist):
         if last_vertex: 
             graph.add_edge((vertex, last_vertex))
-            graph.add_edge((last_vertex, vertex))
-        logging.getLogger("Robot").warning(str(graph))
         last_vertex = vertex
     return last_vertex
 
@@ -282,6 +280,11 @@ def delete_unnecessary_midpoint(robot_pos, graph, last_vertex, midpoints):
         neighbor = None
         if neighbors and len(neighbors) > 0:
             neighbor = neighbors[0]
+
+        for vertex in graph._graph_dict:
+            neighbors = graph._graph_dict[vertex]
+            if last_vertex in neighbors:
+                neighbors.remove(last_vertex)
 
         graph._graph_dict.pop(last_vertex)
         midpoints.pop(-1)
@@ -457,8 +460,9 @@ def move_forward(sens_f_1, sens_f_2, robot_pos, graph, last_vertex, midpoints, l
             logging.getLogger("Robot").warning("Turnpoint")
             last_vertex = delete_unnecessary_midpoint(robot_pos, graph, last_vertex, midpoints)
         last_vertex = update_graph(robot_pos, graph, last_vertex, min_dist=0.2)
-
-        if not sens_l_1 and not sens_l_2 and not sens_r_1 and not sens_r_2:
+    
+        
+        if not sens_l_1 and not sens_l_2 and not sens_r_1 and not sens_r_2 and not last_vertex in midpoints:
             logging.getLogger("Robot").warning("Open Turnpoint")
             midpoints.append(last_vertex)
             visited_midpoints.append(last_vertex)
@@ -474,9 +478,11 @@ def midpoint_arrival_treat(robot_pos, target, visited_midpoints, sensor_detect, 
     # Chegamos no objetivo, precisamos rodar
     if abs(positive_angle(robot_pos[2]) - positive_angle(target[2])) > 0.01:
         turn_to_target(robot_pos[2], target[2])
-    elif target in visited_midpoints:
+    elif target in visited_midpoints :
         state = State.TURN_LEFT
         logging.getLogger("Robot").warning("Reaching midpoint second time. Turning right.")
+        midpoints.pop(-1)
+        vertex_index = 0
     else:
         visited_midpoints.append(target)
         midpoints.pop(-1)
